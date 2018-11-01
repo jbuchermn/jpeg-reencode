@@ -1,0 +1,27 @@
+project(
+    'jpeg-quality-changer',
+    'c',
+    version: '0.1.0',
+    license: 'MIT',
+    meson_version: '>=0.48.0',
+    default_options : [
+        'c_std=c11',
+        'warning_level=2'
+    ],
+)
+
+
+sources = [
+    'src/main.c',
+    'src/jpeg.c',
+    'src/huffman.c'
+]
+
+incs = include_directories('include')
+
+executable(
+	'jpeg-quality-changer',
+	sources,
+    include_directories: incs,
+	dependencies: [],
+)
