@@ -5,11 +5,16 @@
 #include <assert.h>
 #include "huffman.h"
 
-void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size, int escape_ff){
+void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size, int jpeg){
     bitstream->at = data;
     bitstream->at_bit = 0;
     bitstream->size_bytes = size;
-    bitstream->escape_ff = escape_ff;
+    /*
+     *  * Escape FF00 to FF
+     *  * Terminate at FFD9
+     *  * Drop all other FFxx: TODO does not handle restart markers properly
+     */
+    bitstream->jpeg = jpeg;
 }
 
 int bitstream_next(struct bitstream* bitstream, int* data){
@@ -18,17 +23,36 @@ int bitstream_next(struct bitstream* bitstream, int* data){
     *data = ((*bitstream->at) >> bitstream->at_bit) & 1;
 
     if(bitstream->at_bit == 7){
-        if(bitstream->escape_ff && 
-                bitstream->size_bytes > 1 && 
+        if(bitstream->jpeg){
+            if(
+                bitstream->size_bytes >= 2 && 
                 bitstream->at[0] == 0xFF &&
                 bitstream->at[1] == 0x00
-        ){
-            bitstream->at++;
-            bitstream->size_bytes--;
+            ){
+                bitstream->at++;
+                bitstream->size_bytes--;
+            }
+
+            if(
+                bitstream->size_bytes >= 3 &&
+                bitstream->at[1] == 0xFF &&
+                bitstream->at[2] != 0x00
+            ){
+                bitstream->at += 2;
+                bitstream->size_bytes -= 2;
+
+                // EOS marker
+                if(*bitstream->at == 0xD9){
+                    bitstream->size_bytes = 1;
+                }
+            }
         }
+
         bitstream->at_bit = 0;
         bitstream->at++;
         bitstream->size_bytes--;
+    }else{
+        bitstream->at_bit++;
     }
 
     return 1;
@@ -111,7 +135,8 @@ uint8_t huffman_tree_decode(struct huffman_tree* tree, struct bitstream* data){
     }
 
     int bit;
-    assert(bitstream_next(data, &bit));
+    int success = bitstream_next(data, &bit);
+    assert(success);
     if(bit){
         assert(tree->right);
         return huffman_tree_decode(tree->right, data);

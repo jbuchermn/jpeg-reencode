@@ -10,6 +10,7 @@ project(
     ],
 )
 
+m = meson.get_compiler('c').find_library('m')
 
 sources = [
     'src/main.c',
@@ -23,5 +24,5 @@ executable(
 	'jpeg-quality-changer',
 	sources,
     include_directories: incs,
-	dependencies: [],
+	dependencies: [m],
 )

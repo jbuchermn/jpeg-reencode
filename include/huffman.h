@@ -1,13 +1,13 @@
 #include <stdint.h>
 
 struct bitstream {
-    int escape_ff;
+    int jpeg;
     unsigned char* at;
     uint8_t at_bit;
     long size_bytes;
 };
 
-void bitsream_init(struct bitstream* bitstream, unsigned char* data, long size, int escape_ff);
+void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size, int escape_ff);
 int bitstream_next(struct bitstream* bitstream, int* data);
 
 struct huffman_tree {
