@@ -20,6 +20,8 @@ int main(int argc, char** argv){
 
     struct jpeg jpeg;
     jpeg_init(&jpeg, size, data);
+    printf("Loaded JPEG of size %dx%d with %d components\n", jpeg.width, jpeg.height, jpeg.n_components);
     jpeg_print_segments(&jpeg);
+    jpeg_decode_huffman(&jpeg);
     return 0;
 }

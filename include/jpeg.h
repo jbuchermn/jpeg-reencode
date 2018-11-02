@@ -1,25 +1,33 @@
 struct huffman_tree;
-struct jpeg_huffman_table;
 struct jpeg_quantisation_table;
 struct jpeg_segment;
 struct jpeg;
 
-struct jpeg_huffman_table {
-    struct huffman_tree* lum_dc;
-    struct huffman_tree* lum_ac;
-    struct huffman_tree* color_dc;
-    struct huffman_tree* color_ac;
+#define MAX_TABLES 4
+#define MAX_COMPONENTS 4
+
+struct jpeg_huffman_table{
+    int id;
+    int class;
+    struct huffman_tree* huffman_tree;
 };
 
-void jpeg_huffman_table_init(struct jpeg_huffman_table* table, struct jpeg_segment* from);
+int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at);
 
 struct jpeg_quantisation_table {
-    uint16_t* lum_values;
-    uint16_t* color_values;
+    int id;
+    uint16_t values[64];
 };
 
-void jpeq_quantisation_table_init(struct jpeg_quantisation_table* table, struct jpeg_segment* from);
+int jpeq_quantisation_table_init(struct jpeg_quantisation_table* table, unsigned char* at);
 
+struct jpeg_component {
+    int id;
+    int dc_huffman_id;
+    int ac_huffman_id;
+};
+
+int jpeg_component_init(struct jpeg_component* component, unsigned char* at);
 
 struct jpeg_segment {
     long size;
@@ -35,11 +43,20 @@ struct jpeg {
     long size;
     unsigned char* data;
 
+    int width;
+    int height;
+    int n_components;
+    struct jpeg_component* components[MAX_COMPONENTS];
+
     struct jpeg_segment* first_segment;
-    struct jpeg_quantisation_table* quantisation_table;
-    struct jpeg_huffman_table* huffman_table;
+    unsigned char* scan_data;
+
+    struct jpeg_quantisation_table* quantisation_tables[MAX_TABLES];
+    struct jpeg_huffman_table* ac_huffman_tables[MAX_TABLES];
+    struct jpeg_huffman_table* dc_huffman_tables[MAX_TABLES];
 };
 
 void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data);
 void jpeg_print_segments(struct jpeg* jpeg);
 struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header);
+void jpeg_decode_huffman(struct jpeg* jpeg);
