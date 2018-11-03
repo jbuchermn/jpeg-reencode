@@ -5,57 +5,22 @@
 #include <assert.h>
 #include "huffman.h"
 
-void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size, int jpeg){
-    bitstream->at = data;
-    bitstream->at_bit = 0;
-    bitstream->size_bytes = size;
-    /*
-     *  * Escape FF00 to FF
-     *  * Terminate at FFD9
-     *  * Drop all other FFxx: TODO does not handle restart markers properly
-     */
-    bitstream->jpeg = jpeg;
+void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(struct ibitstream*, uint8_t*)){
+    stream->data = data;
+    stream->read = read;
 }
 
-int bitstream_next(struct bitstream* bitstream, int* data){
-    if(bitstream->size_bytes == 0) return 0;
+int ibitstream_read(struct ibitstream* stream, uint8_t* bit){
+    return (*stream->read)(stream->data, bit);
+}
 
-    *data = ((*bitstream->at) >> (7 - bitstream->at_bit)) & 1;
+void obitstream_init(struct obitstream* stream, void* data, int (*write)(struct obitstream*, uint8_t)){
+    stream->data = data;
+    stream->write = write;
+}
 
-    if(bitstream->at_bit == 7){
-        if(bitstream->jpeg){
-            if(
-                bitstream->size_bytes >= 2 && 
-                bitstream->at[0] == 0xFF &&
-                bitstream->at[1] == 0x00
-            ){
-                bitstream->at++;
-                bitstream->size_bytes--;
-            }
-
-            if(
-                bitstream->size_bytes >= 3 &&
-                bitstream->at[1] == 0xFF &&
-                bitstream->at[2] != 0x00
-            ){
-                bitstream->at += 2;
-                bitstream->size_bytes -= 2;
-
-                // EOS marker
-                if(*bitstream->at == 0xD9){
-                    bitstream->size_bytes = 1;
-                }
-            }
-        }
-
-        bitstream->at_bit = 0;
-        bitstream->at++;
-        bitstream->size_bytes--;
-    }else{
-        bitstream->at_bit++;
-    }
-
-    return 1;
+int obitstream_write(struct obitstream* stream, uint8_t bit){
+    return (*stream->write)(stream->data, bit);
 }
 
 void huffman_tree_init(struct huffman_tree* tree){
@@ -127,19 +92,27 @@ void huffman_tree_print(struct huffman_tree* tree, char* prefix){
     }
 }
 
-uint8_t huffman_tree_decode(struct huffman_tree* tree, struct bitstream* data){
+int huffman_tree_decode(struct huffman_tree* tree, struct ibitstream* stream, uint8_t* result){
     if(tree->has_element){
-        return tree->element;
+        *result = tree->element;
+        return 0;
     }
 
-    int bit;
-    int success = bitstream_next(data, &bit);
-    assert(success);
+    uint8_t bit;
+    int status = ibitstream_read(stream, &bit);
+    if(status){
+        return status;
+    }
+
     if(bit){
-        assert(tree->right);
-        return huffman_tree_decode(tree->right, data);
+        if(!tree->right){
+            return E_INVALID_CODE;
+        }
+        return huffman_tree_decode(tree->right, stream, result);
     }else{
-        assert(tree->left);
-        return huffman_tree_decode(tree->left, data);
+        if(!tree->left){
+            return E_INVALID_CODE;
+        }
+        return huffman_tree_decode(tree->left, stream, result);
     }
 }

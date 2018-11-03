@@ -1,10 +1,18 @@
+#ifndef JPEG_H
+#define JPEG_H
+
 struct huffman_tree;
 struct jpeg_quantisation_table;
 struct jpeg_segment;
 struct jpeg;
 
+#include "huffman.h"
+
 #define MAX_TABLES 4
 #define MAX_COMPONENTS 4
+
+#define E_EMPTY -1
+#define E_RESTART -2
 
 struct jpeg_segment {
     long size;
@@ -84,4 +92,18 @@ void jpeg_print_quantisation_tables(struct jpeg* jpeg);
 void jpeg_print_huffman_tables(struct jpeg* jpeg);
 
 struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, struct jpeg_segment* after);
+
+struct jpeg_ibitstream {
+    struct ibitstream ibitstream;
+
+    uint8_t at_restart;
+    unsigned char* at;
+    uint8_t at_bit;
+    long size_bytes;
+};
+
+void jpeg_ibitstream_init(struct jpeg_ibitstream* stream, unsigned char* data, long size);
+
 int jpeg_decode_huffman(struct jpeg* jpeg);
+
+#endif

@@ -284,7 +284,67 @@ struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, 
     return 0;
 }
 
-static int from_ssss(uint8_t ssss, struct bitstream* stream, int8_t* value){
+static int jpeg_ibitstream_read(void* data, uint8_t* result){
+    struct jpeg_ibitstream* stream = (struct jpeg_ibitstream*)data;
+
+    if(stream->size_bytes == 0) return E_EMPTY;
+    if(stream->at_restart){
+        stream->at_restart = 0;
+        return E_RESTART;
+    }
+
+    *result = ((*stream->at) >> (7 - stream->at_bit)) & 1;
+
+    if(stream->at_bit == 7){
+        if(
+            stream->size_bytes >= 2 && 
+            stream->at[0] == 0xFF &&
+            stream->at[1] == 0x00
+        ){
+            stream->at++;
+            stream->size_bytes--;
+        }
+
+        if(
+            stream->size_bytes >= 3 &&
+            stream->at[1] == 0xFF &&
+            stream->at[2] != 0x00
+        ){
+            stream->at += 2;
+            stream->size_bytes -= 2;
+
+            // EOS marker
+            if(*stream->at == 0xD9){
+                stream->size_bytes = 1;
+            }
+
+            // Restart marker
+            if(*stream->at >= 0xD0 && *stream->at <= 0xD7){
+                stream->at_restart = 1;
+            }
+        }
+
+        stream->at_bit = 0;
+        stream->at++;
+        stream->size_bytes--;
+    }else{
+        stream->at_bit++;
+    }
+
+    return 0;
+}
+
+void jpeg_ibitstream_init(struct jpeg_ibitstream* stream, unsigned char* data, long size){
+    ibitstream_init(&stream->ibitstream, stream, &jpeg_ibitstream_read);
+    stream->at = data;
+    stream->at_restart = 0;
+    stream->at_bit = 0;
+    stream->size_bytes = size;
+}
+
+
+
+static int from_ssss(uint8_t ssss, struct ibitstream* stream, int8_t* value){
     if(ssss == 0){
         *value = 0;
         return 0;
@@ -293,8 +353,10 @@ static int from_ssss(uint8_t ssss, struct bitstream* stream, int8_t* value){
     int8_t basevalue = 1 << (ssss - 1);
 
     int positive; 
-    int success = bitstream_next(stream, &positive);
-    assert(success);
+    int status = ibitstream_read(stream, &positive);
+    if(status){
+        return status;
+    }
 
     if(!positive){
         basevalue = 1 - 2*basevalue;
@@ -303,8 +365,10 @@ static int from_ssss(uint8_t ssss, struct bitstream* stream, int8_t* value){
     int8_t additional = 0;
     for(int i=0; i<ssss - 1; i++){
         int next_bit;
-        int success = bitstream_next(stream, &next_bit);
-        assert(success);
+        int status = ibitstream_read(stream, &next_bit);
+        if(status){
+            return status;
+        }
         additional = (additional << 1) + next_bit;
     }
 
@@ -312,13 +376,23 @@ static int from_ssss(uint8_t ssss, struct bitstream* stream, int8_t* value){
     return 0;
 }
 
-static int read_dc_value(struct bitstream* stream, struct huffman_tree* tree, int8_t* value){
-    uint8_t ssss = huffman_tree_decode(tree, stream);
+static int read_dc_value(struct ibitstream* stream, struct huffman_tree* tree, int8_t* value){
+    uint8_t ssss;
+    int status = huffman_tree_decode(tree, stream, &ssss);
+    if(status){
+        return status;
+    }
+
     return from_ssss(ssss, stream, value);
 }
 
-static int read_ac_value(struct bitstream* stream, struct huffman_tree* tree, int8_t* value, uint8_t* leading_zeros){
-    uint8_t rrrrssss = huffman_tree_decode(tree, stream);
+static int read_ac_value(struct ibitstream* stream, struct huffman_tree* tree, int8_t* value, uint8_t* leading_zeros){
+    uint8_t rrrrssss;
+    int status = huffman_tree_decode(tree, stream, &rrrrssss);
+    if(status){
+        return status;
+    }
+
     uint8_t rrrr = (rrrrssss & 0xF0) / 16;
     uint8_t ssss = rrrrssss & 0x0F;
 
@@ -342,7 +416,7 @@ static int read_ac_value(struct bitstream* stream, struct huffman_tree* tree, in
     }
 }
 
-static int decode_block(int8_t* result, struct bitstream* stream, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
+static int decode_block(int8_t* result, struct ibitstream* stream, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
     read_dc_value(stream, dc_tree, result);
     for(int i=1; i<64; i++){
         uint8_t leading_zeros;
@@ -365,8 +439,8 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
     unsigned char* scan_data = sos->data + sos->size;
     long scan_size = jpeg->size - (scan_data - jpeg->data);
 
-    struct bitstream stream;
-    bitstream_init(&stream, scan_data, scan_size, 1);
+    struct jpeg_ibitstream stream;
+    jpeg_ibitstream_init(&stream, scan_data, scan_size);
 
     int loop_count = 0;
     for(int i=0; i<jpeg->n_components; i++){
@@ -388,7 +462,7 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
         int dc_id = loop[component]->dc_huffman_id;
         int ac_id = loop[component]->ac_huffman_id;
 
-        decode_block(jpeg->blocks[i].values, &stream, 
+        decode_block(jpeg->blocks[i].values, &stream.ibitstream, 
                 jpeg->dc_huffman_tables[dc_id]->huffman_tree,
                 jpeg->ac_huffman_tables[ac_id]->huffman_tree);
 
@@ -398,7 +472,7 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
     // Move to byte boundary
     if(stream.size_bytes > 0){
         int dummy;
-        while(stream.at_bit != 0) bitstream_next(&stream, &dummy);
+        while(stream.at_bit != 0) ibitstream_read(&stream.ibitstream, &dummy);
     }
 
     // Assert we hit EOS

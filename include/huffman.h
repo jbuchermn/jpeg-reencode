@@ -1,14 +1,9 @@
+#ifndef HUFFMAN_H
+#define HUFFMAN_H 
+
 #include <stdint.h>
 
-struct bitstream {
-    int jpeg;
-    unsigned char* at;
-    uint8_t at_bit;
-    long size_bytes;
-};
-
-void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size, int escape_ff);
-int bitstream_next(struct bitstream* bitstream, int* data);
+#define E_INVALID_CODE -1
 
 struct huffman_tree {
     int has_element;
@@ -18,7 +13,26 @@ struct huffman_tree {
     struct huffman_tree* right;
 };
 
+struct ibitstream {
+    void* data;
+    int (*read)(struct ibitstream*, uint8_t*);
+};
+
+void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(struct ibitstream*, uint8_t*));
+int ibitstream_read(struct ibitstream* stream, uint8_t* bit);
+
+struct obitstream {
+    void* data;
+    int (*write)(struct obitstream*, uint8_t);
+};
+
+void obitstream_init(struct obitstream* stream, void* data, int (*write)(struct obitstream*, uint8_t));
+int obitstream_write(struct obitstream* stream, uint8_t bit);
+
 void huffman_tree_init(struct huffman_tree* tree);
 int huffman_tree_insert_goleft(struct huffman_tree* tree, int depth, uint8_t element);
 void huffman_tree_print(struct huffman_tree* tree, char* prefix);
-uint8_t huffman_tree_decode(struct huffman_tree* tree, struct bitstream* data);
+
+int huffman_tree_decode(struct huffman_tree* tree, struct ibitstream* stream, uint8_t* result);
+
+#endif
