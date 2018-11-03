@@ -6,6 +6,16 @@ struct jpeg;
 #define MAX_TABLES 4
 #define MAX_COMPONENTS 4
 
+struct jpeg_segment {
+    long size;
+    unsigned char* data;
+
+    struct jpeg* jpeg;
+    struct jpeg_segment* next_segment;
+};
+
+void jpeg_segment_init(struct jpeg_segment* segment, struct jpeg* jpeg, long size, unsigned char* data);
+
 struct jpeg_huffman_table{
     int id;
     int class;
@@ -33,16 +43,6 @@ struct jpeg_component {
 int jpeg_component_init(struct jpeg_component* component, unsigned char* at);
 int jpeg_component_add_huffman(struct jpeg_component* component, unsigned char* at);
 
-struct jpeg_segment {
-    long size;
-    unsigned char* data;
-
-    struct jpeg* jpeg;
-    struct jpeg_segment* next_segment;
-};
-
-void jpeg_segment_init(struct jpeg_segment* segment, struct jpeg* jpeg, long size, unsigned char* data);
-
 struct jpeg_block {
     int component_id;
     int8_t values[64];
@@ -56,23 +56,32 @@ struct jpeg {
 
     int width;
     int height;
-    int n_components;
 
-    struct jpeg_component* components[MAX_COMPONENTS];
     struct jpeg_segment* first_segment;
 
-    long scan_size;
-    unsigned char* scan_data;
+    int n_components;
+    struct jpeg_component* components[MAX_COMPONENTS];
 
+    int n_quantisation_tables;
     struct jpeg_quantisation_table* quantisation_tables[MAX_TABLES];
+
+    int n_ac_huffman_tables;
     struct jpeg_huffman_table* ac_huffman_tables[MAX_TABLES];
+
+    int n_dc_huffman_tables;
     struct jpeg_huffman_table* dc_huffman_tables[MAX_TABLES];
 
     int n_blocks;
     struct jpeg_block* blocks;
 };
 
-void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data);
+int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data);
+
+void jpeg_print_sizes(struct jpeg* jpeg);
 void jpeg_print_segments(struct jpeg* jpeg);
+void jpeg_print_components(struct jpeg* jpeg);
+void jpeg_print_quantisation_tables(struct jpeg* jpeg);
+void jpeg_print_huffman_tables(struct jpeg* jpeg);
+
 struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, struct jpeg_segment* after);
-void jpeg_decode_huffman(struct jpeg* jpeg);
+int jpeg_decode_huffman(struct jpeg* jpeg);

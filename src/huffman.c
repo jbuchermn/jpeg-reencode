@@ -20,7 +20,7 @@ void bitstream_init(struct bitstream* bitstream, unsigned char* data, long size,
 int bitstream_next(struct bitstream* bitstream, int* data){
     if(bitstream->size_bytes == 0) return 0;
 
-    *data = ((*bitstream->at) >> bitstream->at_bit) & 1;
+    *data = ((*bitstream->at) >> (7 - bitstream->at_bit)) & 1;
 
     if(bitstream->at_bit == 7){
         if(bitstream->jpeg){
@@ -103,27 +103,25 @@ int huffman_tree_insert_goleft(struct huffman_tree* tree, int depth, uint8_t ele
 void huffman_tree_print(struct huffman_tree* tree, char* prefix){
     if(tree->has_element){
         printf("%s: %d\n", prefix, tree->element);
-    }
-    if(tree->left){
+    }else{
         int len = strlen(prefix);
         char* p = malloc(len + 1);
         strcpy(p, prefix);
-        p[len] = '0';
         p[len + 1] = '\0';
 
-        huffman_tree_print(tree->left, p);
+        if(tree->left){
+            p[len] = '0';
+            huffman_tree_print(tree->left, p);
+        }else{
+            printf("\tNo left child\n");
+        }
 
-        free(p);
-    }
-
-    if(tree->right){
-        int len = strlen(prefix);
-        char* p = malloc(len + 1);
-        strcpy(p, prefix);
-        p[len] = '1';
-        p[len + 1] = '\0';
-
-        huffman_tree_print(tree->right, p);
+        if(tree->right){
+            p[len] = '1';
+            huffman_tree_print(tree->right, p);
+        }else{
+            printf("\tNo right child\n");
+        }
 
         free(p);
     }

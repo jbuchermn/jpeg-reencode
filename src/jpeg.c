@@ -20,7 +20,6 @@ int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at)
     table->huffman_tree = malloc(sizeof(struct huffman_tree));
     huffman_tree_init(table->huffman_tree);
 
-
     int n_elements[16];
     for(int i=0; i<16; i++){
         n_elements[i] = *at;
@@ -67,8 +66,6 @@ int jpeg_component_init(struct jpeg_component* component, unsigned char* at){
     uint8_t sampling = at[1];
     component->vertical_sampling = (sampling & 0xF0) / 16;
     component->horizontal_sampling = sampling & 0x0F;
-    printf("Component ID=%d, sampling=%d %d\n",
-            component->id, component->vertical_sampling, component->horizontal_sampling);
     component->quantisation_id = at[2];
     return 3;
 }
@@ -95,7 +92,7 @@ void jpeg_block_init(struct jpeg_block* block, int component_id){
     block->component_id = component_id;
 }
 
-void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
+int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     jpeg->size = size;
     jpeg->data = data;
 
@@ -144,6 +141,7 @@ void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     }
 
     // Quantisation
+    jpeg->n_quantisation_tables = 0;
     for(struct jpeg_segment* quantisation = jpeg_find_segment(jpeg, 0xDB, 0); quantisation; quantisation = jpeg_find_segment(jpeg, 0xDB, quantisation)){
         unsigned char* at = quantisation->data + 4;
         while(at - quantisation->data < quantisation->size){
@@ -151,11 +149,16 @@ void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
             at += jpeg_quantisation_table_init(quantisation_table, at);
             assert(quantisation_table->id < MAX_TABLES);
             jpeg->quantisation_tables[quantisation_table->id] = quantisation_table;
+            if(quantisation_table->id >= jpeg->n_quantisation_tables){
+                jpeg->n_quantisation_tables = quantisation_table->id + 1;
+            }
         }
         assert(at - quantisation->data == quantisation->size);
     }
 
     // Huffman
+    jpeg->n_ac_huffman_tables = 0;
+    jpeg->n_dc_huffman_tables = 0;
     for(struct jpeg_segment* huffman = jpeg_find_segment(jpeg, 0xC4, 0); huffman; huffman = jpeg_find_segment(jpeg, 0xC4, huffman)){
         unsigned char* at = huffman->data + 4;
         while(at - huffman->data < huffman->size){
@@ -164,8 +167,14 @@ void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
             assert(huffman_table->id < MAX_TABLES);
             if(huffman_table->class){
                 jpeg->ac_huffman_tables[huffman_table->id] = huffman_table;
+                if(huffman_table->id >= jpeg->n_ac_huffman_tables){
+                    jpeg->n_ac_huffman_tables = huffman_table->id + 1;
+                }
             }else{
                 jpeg->dc_huffman_tables[huffman_table->id] = huffman_table;
+                if(huffman_table->id >= jpeg->n_dc_huffman_tables){
+                    jpeg->n_dc_huffman_tables = huffman_table->id + 1;
+                }
             }
         }
         assert(at - huffman->data == huffman->size);
@@ -218,16 +227,53 @@ void jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     // Three empty bytes before scan data
     assert(at + 3 - sos->data == sos->size);
 
-    jpeg->scan_data = sos->data + sos->size;
-    jpeg->scan_size = jpeg->size - (jpeg->scan_data - jpeg->data);
+    return 0;
 }
 
+void jpeg_print_sizes(struct jpeg* jpeg){
+    printf("------ JPEG -----------\n");
+    printf("Size: %dx%d, total %d blocks\n", jpeg->width, jpeg->height, jpeg->n_blocks);
+}
 
 void jpeg_print_segments(struct jpeg* jpeg){
-    printf("------ Segment summary ----\n");
+    printf("------ Segments -------\n");
     for(struct jpeg_segment* cur = jpeg->first_segment; cur; cur = cur->next_segment){
-        printf("\tSegment(%02X) of length %ld\n", cur->data[1], cur->size);
+        printf("Segment(%02X) of length %ld\n", cur->data[1], cur->size);
     }
+}
+
+void jpeg_print_components(struct jpeg* jpeg){
+    printf("------ Components -----\n");
+    for(int i=0; i<jpeg->n_components; i++){
+        printf("Component(%d) sampling: %d %d\n",
+                jpeg->components[i]->id,
+                jpeg->components[i]->vertical_sampling,
+                jpeg->components[i]->horizontal_sampling);
+    }
+}
+
+void jpeg_print_quantisation_tables(struct jpeg* jpeg){
+    printf("------ Quantisation ---\n");
+    for(int i=0; i<jpeg->n_quantisation_tables; i++){
+        printf("Quantisation(%d)\n\t", jpeg->quantisation_tables[i]->id);
+        for(int j=0; j<64; j++){
+            printf("%d ", jpeg->quantisation_tables[i]->values[j]);
+        }
+        printf("\n");
+    }
+}
+
+void jpeg_print_huffman_tables(struct jpeg* jpeg){
+    printf("------ Huffman -------\n");
+    for(int i=0; i<jpeg->n_dc_huffman_tables; i++){
+        printf("Huffman(DC, %d)\n", jpeg->dc_huffman_tables[i]->id);
+        huffman_tree_print(jpeg->dc_huffman_tables[i]->huffman_tree, "\t");
+    }
+    for(int i=0; i<jpeg->n_ac_huffman_tables; i++){
+        printf("Huffman(AC, %d)\n", jpeg->ac_huffman_tables[i]->id);
+        huffman_tree_print(jpeg->ac_huffman_tables[i]->huffman_tree, "\t");
+    }
+
 }
 
 struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, struct jpeg_segment* after){
@@ -276,13 +322,13 @@ static int read_ac_value(struct bitstream* stream, struct huffman_tree* tree, in
     uint8_t rrrr = (rrrrssss & 0xF0) / 16;
     uint8_t ssss = rrrrssss & 0x0F;
 
-    if(rrrr == 15 && ssss == 0){
+    if(rrrr == 0 && ssss == 0){
         // Terminate
         *leading_zeros = 64;
         *value = 0;
 
         return 0;
-    }else if(rrrr == 0 && ssss == 0){
+    }else if(rrrr == 15 && ssss == 0){
         // 16 zeros
         *leading_zeros = 15;
         *value = 0;
@@ -314,9 +360,13 @@ static int decode_block(int8_t* result, struct bitstream* stream, struct huffman
     return 0;
 }
 
-void jpeg_decode_huffman(struct jpeg* jpeg){
-    struct bitstream* stream = malloc(sizeof(struct bitstream));
-    bitstream_init(stream, jpeg->scan_data, jpeg->scan_size, 1);
+int jpeg_decode_huffman(struct jpeg* jpeg){
+    struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
+    unsigned char* scan_data = sos->data + sos->size;
+    long scan_size = jpeg->size - (scan_data - jpeg->data);
+
+    struct bitstream stream;
+    bitstream_init(&stream, scan_data, scan_size, 1);
 
     int loop_count = 0;
     for(int i=0; i<jpeg->n_components; i++){
@@ -333,22 +383,28 @@ void jpeg_decode_huffman(struct jpeg* jpeg){
     }
 
     int component = 0;
-    int last_b = stream->size_bytes;
     for(int i=0; i<jpeg->n_blocks; i++){
         jpeg_block_init(jpeg->blocks + i, loop[component]->id);
         int dc_id = loop[component]->dc_huffman_id;
         int ac_id = loop[component]->ac_huffman_id;
 
-        decode_block(jpeg->blocks[i].values, stream, 
+        decode_block(jpeg->blocks[i].values, &stream, 
                 jpeg->dc_huffman_tables[dc_id]->huffman_tree,
                 jpeg->ac_huffman_tables[ac_id]->huffman_tree);
-
-        printf("%d/%d (%db)\n", i, jpeg->n_blocks, last_b - stream->size_bytes);
-        last_b = stream->size_bytes;
 
         component = (component + 1) % loop_count;
     }
 
+    // Move to byte boundary
+    if(stream.size_bytes > 0){
+        int dummy;
+        while(stream.at_bit != 0) bitstream_next(&stream, &dummy);
+    }
+
+    // Assert we hit EOS
+    assert(stream.size_bytes == 0);
+
     free(loop);
-    printf("Decoded %d blocks (%d kB)\n", jpeg->n_blocks, ((stream->at - jpeg->scan_data) / 1000));
+
+    return 0;
 }

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
+#include <time.h>
 
 #include "jpeg.h"
 
@@ -19,9 +21,21 @@ int main(int argc, char** argv){
     fclose(f);
 
     struct jpeg jpeg;
-    jpeg_init(&jpeg, size, data);
-    printf("Loaded JPEG of size %dx%d with %d components\n", jpeg.width, jpeg.height, jpeg.n_components);
+    int status = jpeg_init(&jpeg, size, data);
+    assert(status == 0);
+
+    jpeg_print_sizes(&jpeg);
     jpeg_print_segments(&jpeg);
-    jpeg_decode_huffman(&jpeg);
+    jpeg_print_components(&jpeg);
+    jpeg_print_quantisation_tables(&jpeg);
+    jpeg_print_huffman_tables(&jpeg);
+
+    clock_t decode_time = clock();
+    status = jpeg_decode_huffman(&jpeg);
+    assert(status == 0);
+    decode_time = clock() - decode_time;
+
+    printf("Successfully decoded JPEG in %fms\n", 1000.*decode_time/CLOCKS_PER_SEC);
+
     return 0;
 }
