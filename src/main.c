@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <time.h>
+#include <string.h>
 
 #include "jpeg.h"
 
@@ -28,7 +29,7 @@ int main(int argc, char** argv){
     jpeg_print_segments(&jpeg);
     jpeg_print_components(&jpeg);
     jpeg_print_quantisation_tables(&jpeg);
-    jpeg_print_huffman_tables(&jpeg);
+    /* jpeg_print_huffman_tables(&jpeg); */
 
     clock_t decode_time = clock();
     status = jpeg_decode_huffman(&jpeg);
@@ -41,11 +42,18 @@ int main(int argc, char** argv){
     unsigned char* output_buffer = malloc(bytes_input);
     memset(output_buffer, 0, bytes_input);
 
+    for(int i=0; i<jpeg.n_quantisation_tables; i++){
+        jpeg_quantisation_table_init_recompress(jpeg.quantisation_tables[i], 10.);
+    }
+
     clock_t encode_time = clock();
-    int bytes_output = jpeg_encode_huffman(&jpeg, output_buffer, bytes_input);
-    printf("Result: %d\n", bytes_output);
-    assert(bytes_output > 0);
+    int bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, bytes_input);
+    assert(bytes_header > 0);
+    int bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
+    assert(bytes_scan > 0);
     encode_time = clock() - encode_time;
+
+    int bytes_output = bytes_header + bytes_scan;
 
     printf("Successfully encoded JPEG (%dkB) in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
 

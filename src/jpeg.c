@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 #include "jpeg.h"
 #include "huffman.h"
 
@@ -48,11 +49,11 @@ int jpeg_quantisation_table_init(struct jpeg_quantisation_table* table, unsigned
     uint8_t info = *at;
     at++;
 
-    int double_precision = (info & 0xF0);
+    table->double_precision = (info & 0xF0);
     table->id = info & 0x0F;
 
     for(int i=0; i<64; i++){
-        if(!double_precision){
+        if(!table->double_precision){
             table->values[i] = *at;
             at++;
         }else{
@@ -61,7 +62,19 @@ int jpeg_quantisation_table_init(struct jpeg_quantisation_table* table, unsigned
         }
     }
 
+    for(int i=0; i<64; i++){
+        table->recompress_values[i] = table->values[i];
+        table->recompress_factors[i] = 1.;
+    }
+
     return at - at_orig;
+}
+
+void jpeg_quantisation_table_init_recompress(struct jpeg_quantisation_table* table, float compress){
+    for(int i=0; i<64; i++){
+        table->recompress_values[i] = floor(table->values[i] * compress + .5);
+        table->recompress_factors[i] = ((float)table->values[i]) / table->recompress_values[i];
+    }
 }
 
 int jpeg_component_init(struct jpeg_component* component, unsigned char* at){
@@ -309,4 +322,52 @@ struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, 
     }
 
     return 0;
+}
+
+int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size){
+    unsigned char* at = buffer;
+
+    for(struct jpeg_segment* cur = jpeg->first_segment; cur; cur = cur->next_segment){
+        if(cur->data[1] == 0xDD){
+            // Skip restart header
+            continue;
+        }else if(cur->data[1] == 0xDB){
+            // Modify quantisation header
+            *(at++) = 0xFF;
+            *(at++) = 0xDB;
+            
+            // Leave room for size
+            unsigned char* size = at;
+            at += 2;
+
+            for(int i=0; i<jpeg->n_quantisation_tables; i++){
+                uint8_t info = jpeg->quantisation_tables[i]->id;
+                info |= (jpeg->quantisation_tables[i]->double_precision << 4);
+                *(at++) = info;
+                for(int j=0; j<64; j++){
+                    if(!jpeg->quantisation_tables[i]->double_precision){
+                        *(at++) = jpeg->quantisation_tables[i]->recompress_values[j];
+                    }else{
+                        int value = jpeg->quantisation_tables[i]->recompress_values[j];
+                        *(at++) = (value & 0xFF00) / 256;
+                        *(at++) = value & 0xFF;
+                    }
+                }
+            }
+
+            // Set size
+            int s = (at - size);
+            printf("Quant header size: %d\n", s);
+            *(size++) = (s & 0xFF00) / 256;
+            *(size++) = (s & 0xFF);
+
+        }else{
+            // Copy other headers
+            memcpy(at, cur->data, cur->size);
+            at += cur->size;
+        }
+
+    }
+
+    return at - buffer;
 }

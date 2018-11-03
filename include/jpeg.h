@@ -37,10 +37,18 @@ int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at)
 
 struct jpeg_quantisation_table {
     int id;
+    int double_precision;
+
+    /* values in the source */
     uint16_t values[64];
+
+    /* values to be used in recompressing */
+    uint16_t recompress_values[64];
+    float recompress_factors[64];
 };
 
 int jpeq_quantisation_table_init(struct jpeg_quantisation_table* table, unsigned char* at);
+void jpeg_quantisation_table_init_recompress(struct jpeg_quantisation_table* table, float compress);
 
 struct jpeg_component {
     int id;
@@ -121,5 +129,7 @@ int jpeg_decode_huffman(struct jpeg* jpeg);
 
 /* buffer is required to be 0-initialised */
 long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
+
+int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 
 #endif

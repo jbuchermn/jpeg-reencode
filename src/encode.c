@@ -86,8 +86,12 @@ static int write_rrrrssss(struct obitstream* stream, struct huffman_inv* huffman
     return 0;
 }
 
-static int encode_block(int16_t* data, struct obitstream* stream, int* dc_offset, struct huffman_inv* dc_inv, struct huffman_inv* ac_inv){
+static int encode_block(int16_t* data, struct obitstream* stream, int* dc_offset, struct huffman_inv* dc_inv, struct huffman_inv* ac_inv, struct jpeg_quantisation_table* quantisation){
     
+    for(int i=0; i<64; i++){
+        data[i] = round(data[i] * quantisation->recompress_factors[i]);
+    }
+
     int value = data[0] - (*dc_offset);
     int status = write_rrrrssss(stream, dc_inv, value, 0);
     *dc_offset = data[0];
@@ -130,17 +134,8 @@ static int encode_block(int16_t* data, struct obitstream* stream, int* dc_offset
 }
 
 long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size){
-    /* Simply copy the header for now */
-    struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
-    unsigned char* scan_data = sos->data + sos->size;
-
-    unsigned char* in = jpeg->data;
-    unsigned char* out = buffer;
-    while(in<scan_data){ *(out++) = *(in++); }
-
-    /* Write scan */
     struct jpeg_obitstream stream;
-    jpeg_obitstream_init(&stream, out, buffer_size - (out - buffer));
+    jpeg_obitstream_init(&stream, buffer, buffer_size);
 
     int dc_offset[MAX_COMPONENTS] = { 0 };
 
@@ -148,11 +143,13 @@ long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_s
         struct jpeg_block* block = jpeg->blocks + i;
         int dc_id = jpeg->components[block->component_id - 1]->dc_huffman_id;
         int ac_id = jpeg->components[block->component_id - 1]->ac_huffman_id;
+        int quantisation_id = jpeg->components[block->component_id - 1]->quantisation_id;
 
         int status = encode_block(jpeg->blocks[i].values, &stream.obitstream,
                 dc_offset + block->component_id - 1,
                 jpeg->dc_huffman_tables[dc_id]->huffman_inv,
-                jpeg->ac_huffman_tables[ac_id]->huffman_inv);
+                jpeg->ac_huffman_tables[ac_id]->huffman_inv,
+                jpeg->quantisation_tables[quantisation_id]);
 
         if(status){
             return status;
@@ -165,7 +162,7 @@ long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_s
     }
 
     // Write EOS
-    out = stream.at;
+    unsigned char* out = stream.at;
     assert(out - buffer <= buffer_size - 2);
     *out = 0xFF;
     *out++;
