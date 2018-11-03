@@ -15,6 +15,8 @@ m = meson.get_compiler('c').find_library('m')
 sources = [
     'src/main.c',
     'src/jpeg.c',
+    'src/encode.c',
+    'src/decode.c',
     'src/huffman.c'
 ]
 

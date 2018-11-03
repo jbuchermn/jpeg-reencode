@@ -14,14 +14,14 @@ int main(int argc, char** argv){
 
     FILE* f = fopen(argv[1], "rb");
     fseek(f, 0, SEEK_END);
-    long size = ftell(f);
+    long bytes_input = ftell(f);
     fseek(f, 0, SEEK_SET);
-    unsigned char* data = malloc(size);
-    fread(data, size, 1, f);
+    unsigned char* input_buffer = malloc(bytes_input);
+    fread(input_buffer, bytes_input, 1, f);
     fclose(f);
 
     struct jpeg jpeg;
-    int status = jpeg_init(&jpeg, size, data);
+    int status = jpeg_init(&jpeg, bytes_input, input_buffer);
     assert(status == 0);
 
     jpeg_print_sizes(&jpeg);
@@ -32,10 +32,30 @@ int main(int argc, char** argv){
 
     clock_t decode_time = clock();
     status = jpeg_decode_huffman(&jpeg);
+    printf("Result: %d\n", status);
     assert(status == 0);
     decode_time = clock() - decode_time;
 
-    printf("Successfully decoded JPEG in %fms\n", 1000.*decode_time/CLOCKS_PER_SEC);
+    printf("Successfully decoded JPEG (%dkB) in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
 
+    unsigned char* output_buffer = malloc(bytes_input);
+    memset(output_buffer, 0, bytes_input);
+
+    clock_t encode_time = clock();
+    int bytes_output = jpeg_encode_huffman(&jpeg, output_buffer, bytes_input);
+    printf("Result: %d\n", bytes_output);
+    assert(bytes_output > 0);
+    encode_time = clock() - encode_time;
+
+    printf("Successfully encoded JPEG (%dkB) in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
+
+    f = fopen("./tmp.jpg", "wb");  
+    fwrite(output_buffer, 1, bytes_output, f);
+    fclose(f);
+
+    printf("Wrote to tmp.jpg\n");
+
+    free(input_buffer);
+    free(output_buffer);
     return 0;
 }

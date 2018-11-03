@@ -12,7 +12,9 @@ struct jpeg;
 #define MAX_COMPONENTS 4
 
 #define E_EMPTY -1
-#define E_RESTART -2
+#define E_FULL -2
+#define E_RESTART -3
+#define E_SIZE_MISMATCH -4
 
 struct jpeg_segment {
     long size;
@@ -28,6 +30,7 @@ struct jpeg_huffman_table{
     int id;
     int class;
     struct huffman_tree* huffman_tree;
+    struct huffman_inv* huffman_inv;
 };
 
 int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at);
@@ -53,7 +56,7 @@ int jpeg_component_add_huffman(struct jpeg_component* component, unsigned char* 
 
 struct jpeg_block {
     int component_id;
-    int8_t values[64];
+    int16_t values[64];
 };
 
 void jpeg_block_init(struct jpeg_block* block, int component_id);
@@ -104,6 +107,19 @@ struct jpeg_ibitstream {
 
 void jpeg_ibitstream_init(struct jpeg_ibitstream* stream, unsigned char* data, long size);
 
+struct jpeg_obitstream {
+    struct obitstream obitstream;
+
+    unsigned char* at;
+    uint8_t at_bit;
+    long size_bytes;
+};
+
+void jpeg_obitstream_init(struct jpeg_obitstream* stream, unsigned char* data, long size);
+
 int jpeg_decode_huffman(struct jpeg* jpeg);
+
+/* buffer is required to be 0-initialised */
+long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 
 #endif

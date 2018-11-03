@@ -116,3 +116,50 @@ int huffman_tree_decode(struct huffman_tree* tree, struct ibitstream* stream, ui
         return huffman_tree_decode(tree->left, stream, result);
     }
 }
+
+static void huffman_inv_init_rec(struct huffman_inv* inv, struct huffman_tree* from, uint16_t current, uint8_t current_size){
+    if(from->has_element){
+        assert(from->element < inv->size);
+        inv->data[from->element].exists = 1;
+        inv->data[from->element].size = current_size;
+        inv->data[from->element].bits = current;
+    }
+
+    if(from->left){
+        huffman_inv_init_rec(inv, from->left, current, current_size + 1);
+    }
+    
+    if(from->right){
+        current |= (1 << (15 - current_size));
+        huffman_inv_init_rec(inv, from->right, current, current_size + 1);
+    }
+}
+
+void huffman_inv_init(struct huffman_inv* inv, struct huffman_tree* from){
+    /* For now */
+    inv->size = 256;
+
+    inv->data = malloc(256 * sizeof(struct huffman_inv_element));
+    for(int i=0; i<256; i++){
+        inv->data[i].exists = 0;
+    }
+
+    huffman_inv_init_rec(inv, from, 0, 0);
+}
+
+int huffman_inv_encode(struct huffman_inv* inv, struct obitstream* stream, uint8_t data){
+    if(data >= inv->size || !inv->data[data].exists){
+        return E_NO_CODE;
+    }
+
+    uint16_t val = inv->data[data].bits;
+    for(int i=0; i<inv->data[data].size; i++){
+        uint8_t bit = (val >> (15 - i)) & 1;
+        int status = obitstream_write(stream, bit);
+        if(status){
+            return status;
+        }
+    }
+
+    return 0;
+}
