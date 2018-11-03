@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "huffman.h"
 
-void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(struct ibitstream*, uint8_t*)){
+void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(void*, uint8_t*)){
     stream->data = data;
     stream->read = read;
 }
@@ -14,7 +14,7 @@ int ibitstream_read(struct ibitstream* stream, uint8_t* bit){
     return (*stream->read)(stream->data, bit);
 }
 
-void obitstream_init(struct obitstream* stream, void* data, int (*write)(struct obitstream*, uint8_t)){
+void obitstream_init(struct obitstream* stream, void* data, int (*write)(void*, uint8_t)){
     stream->data = data;
     stream->write = write;
 }

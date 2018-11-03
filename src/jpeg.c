@@ -352,7 +352,7 @@ static int from_ssss(uint8_t ssss, struct ibitstream* stream, int8_t* value){
 
     int8_t basevalue = 1 << (ssss - 1);
 
-    int positive; 
+    uint8_t positive; 
     int status = ibitstream_read(stream, &positive);
     if(status){
         return status;
@@ -364,7 +364,7 @@ static int from_ssss(uint8_t ssss, struct ibitstream* stream, int8_t* value){
 
     int8_t additional = 0;
     for(int i=0; i<ssss - 1; i++){
-        int next_bit;
+        uint8_t next_bit;
         int status = ibitstream_read(stream, &next_bit);
         if(status){
             return status;
@@ -416,12 +416,22 @@ static int read_ac_value(struct ibitstream* stream, struct huffman_tree* tree, i
     }
 }
 
-static int decode_block(int8_t* result, struct ibitstream* stream, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
-    read_dc_value(stream, dc_tree, result);
+static int decode_block(int8_t* result, struct ibitstream* stream, uint8_t* dc_offset, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
+    int status = read_dc_value(stream, dc_tree, result);
+    result[0] += *dc_offset;
+    *dc_offset = result[0];
+
+    if(status){
+        return status;
+    }
+
     for(int i=1; i<64; i++){
         uint8_t leading_zeros;
         int8_t value;
-        read_ac_value(stream, ac_tree, &value, &leading_zeros);
+        int status = read_ac_value(stream, ac_tree, &value, &leading_zeros);
+        if(status){
+            return status;
+        }
 
         i += leading_zeros;
         if(i >= 64){
@@ -456,22 +466,29 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
         }
     }
 
+    uint8_t dc_offset[MAX_COMPONENTS] = { 0 };
+
     int component = 0;
     for(int i=0; i<jpeg->n_blocks; i++){
         jpeg_block_init(jpeg->blocks + i, loop[component]->id);
         int dc_id = loop[component]->dc_huffman_id;
         int ac_id = loop[component]->ac_huffman_id;
 
-        decode_block(jpeg->blocks[i].values, &stream.ibitstream, 
+        int status = decode_block(jpeg->blocks[i].values, &stream.ibitstream, 
+                dc_offset + loop[component]->id - 1,
                 jpeg->dc_huffman_tables[dc_id]->huffman_tree,
                 jpeg->ac_huffman_tables[ac_id]->huffman_tree);
+        if(status){
+            free(loop);
+            return status;
+        }
 
         component = (component + 1) % loop_count;
     }
 
     // Move to byte boundary
     if(stream.size_bytes > 0){
-        int dummy;
+        uint8_t dummy;
         while(stream.at_bit != 0) ibitstream_read(&stream.ibitstream, &dummy);
     }
 
@@ -479,6 +496,5 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
     assert(stream.size_bytes == 0);
 
     free(loop);
-
     return 0;
 }

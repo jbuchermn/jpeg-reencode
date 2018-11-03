@@ -15,18 +15,18 @@ struct huffman_tree {
 
 struct ibitstream {
     void* data;
-    int (*read)(struct ibitstream*, uint8_t*);
+    int (*read)(void*, uint8_t*);
 };
 
-void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(struct ibitstream*, uint8_t*));
+void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(void*, uint8_t*));
 int ibitstream_read(struct ibitstream* stream, uint8_t* bit);
 
 struct obitstream {
     void* data;
-    int (*write)(struct obitstream*, uint8_t);
+    int (*write)(void*, uint8_t);
 };
 
-void obitstream_init(struct obitstream* stream, void* data, int (*write)(struct obitstream*, uint8_t));
+void obitstream_init(struct obitstream* stream, void* data, int (*write)(void*, uint8_t));
 int obitstream_write(struct obitstream* stream, uint8_t bit);
 
 void huffman_tree_init(struct huffman_tree* tree);
