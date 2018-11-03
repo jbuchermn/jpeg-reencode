@@ -41,7 +41,7 @@ void jpeg_obitstream_init(struct jpeg_obitstream* stream, unsigned char* data, l
     stream->size_bytes = size;
 }
 
-static int write_ssss(struct obitstream* stream, struct huffman_inv* huffman_inv, int value){
+static int write_rrrrssss(struct obitstream* stream, struct huffman_inv* huffman_inv, int value, uint8_t rrrr){
     int ssss;
 
     if(value == 0){
@@ -58,7 +58,7 @@ static int write_ssss(struct obitstream* stream, struct huffman_inv* huffman_inv
         value *= -1;
     }
 
-    int status = huffman_inv_encode(huffman_inv, stream, ssss);
+    int status = huffman_inv_encode(huffman_inv, stream, (rrrr << 4) + ssss);
     if(status){
         return status;
     }
@@ -89,7 +89,7 @@ static int write_ssss(struct obitstream* stream, struct huffman_inv* huffman_inv
 static int encode_block(int16_t* data, struct obitstream* stream, int* dc_offset, struct huffman_inv* dc_inv, struct huffman_inv* ac_inv){
     
     int value = data[0] - (*dc_offset);
-    int status = write_ssss(stream, dc_inv, value);
+    int status = write_rrrrssss(stream, dc_inv, value, 0);
     *dc_offset = data[0];
 
     if(status){
@@ -97,9 +97,33 @@ static int encode_block(int16_t* data, struct obitstream* stream, int* dc_offset
     }
 
     // Skip all AC values
-    status = huffman_inv_encode(ac_inv, stream, 0);
-    if(status){
-        return status;
+    int zeros = 0;
+    for(int i=1; i<64; i++){
+        if(data[i] == 0){
+            zeros++;
+        }else{
+            if(zeros > 16){
+                status = huffman_inv_encode(ac_inv, stream, 0xF0);
+                if(status){
+                    return status;
+                }
+                zeros -= 16;
+            }
+
+            status = write_rrrrssss(stream, ac_inv, data[i], zeros);
+            if(status){
+                return status;
+            }
+            zeros = 0;
+        }
+    }
+    if(zeros > 0){
+        // Terminate
+        status = huffman_inv_encode(ac_inv, stream, 0);
+        if(status){
+            return status;
+        }
+
     }
 
     return 0;

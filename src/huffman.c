@@ -149,6 +149,7 @@ void huffman_inv_init(struct huffman_inv* inv, struct huffman_tree* from){
 
 int huffman_inv_encode(struct huffman_inv* inv, struct obitstream* stream, uint8_t data){
     if(data >= inv->size || !inv->data[data].exists){
+        printf("%d\n", data);
         return E_NO_CODE;
     }
 
