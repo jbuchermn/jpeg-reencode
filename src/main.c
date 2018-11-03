@@ -33,7 +33,6 @@ int main(int argc, char** argv){
 
     clock_t decode_time = clock();
     status = jpeg_decode_huffman(&jpeg);
-    printf("Result: %d\n", status);
     assert(status == 0);
     decode_time = clock() - decode_time;
 
@@ -62,6 +61,8 @@ int main(int argc, char** argv){
     fclose(f);
 
     printf("Wrote to tmp.jpg\n");
+
+    jpeg_destroy(&jpeg);
 
     free(input_buffer);
     free(output_buffer);

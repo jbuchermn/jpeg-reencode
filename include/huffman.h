@@ -15,6 +15,8 @@ struct huffman_tree {
 };
 
 void huffman_tree_init(struct huffman_tree* tree);
+void huffman_tree_destroy(struct huffman_tree* tree);
+
 int huffman_tree_insert_goleft(struct huffman_tree* tree, int depth, uint8_t element);
 void huffman_tree_print(struct huffman_tree* tree, char* prefix);
 
@@ -40,6 +42,7 @@ struct huffman_inv {
 };
 
 void huffman_inv_init(struct huffman_inv* inv, struct huffman_tree* from);
+void huffman_inv_destroy(struct huffman_inv* inv);
 
 struct obitstream {
     void* data;

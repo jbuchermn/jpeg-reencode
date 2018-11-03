@@ -43,6 +43,17 @@ int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at)
     return at - at_orig;
 }
 
+void jpeg_huffman_table_destroy(struct jpeg_huffman_table* table){
+    huffman_tree_destroy(table->huffman_tree);
+    free(table->huffman_tree);
+    table->huffman_tree = 0;
+
+    huffman_inv_destroy(table->huffman_inv);
+    free(table->huffman_inv);
+    table->huffman_inv = 0;
+}
+
+
 int jpeg_quantisation_table_init(struct jpeg_quantisation_table* table, unsigned char* at){
     unsigned char* at_orig = at;
 
@@ -254,6 +265,7 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
             block_height * jpeg->components[i]->horizontal_sampling;
     }
     jpeg->blocks = malloc(jpeg->n_blocks * sizeof(struct jpeg_block));
+    memset(jpeg->blocks, 0, jpeg->n_blocks * sizeof(struct jpeg_block));
 
     // Start of scan
     struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
@@ -268,6 +280,40 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     assert(at + 3 - sos->data == sos->size);
 
     return 0;
+}
+
+void jpeg_destroy(struct jpeg* jpeg){
+    for(int i=0; i<jpeg->n_components; i++){
+        free(jpeg->components[i]);
+        jpeg->components[i] = 0;
+    }
+
+    for(int i=0; i<jpeg->n_quantisation_tables; i++){
+        free(jpeg->quantisation_tables[i]);
+        jpeg->quantisation_tables[i] = 0;
+    }
+
+    for(int i=0; i<jpeg->n_ac_huffman_tables; i++){
+        jpeg_huffman_table_destroy(jpeg->ac_huffman_tables[i]);
+        free(jpeg->ac_huffman_tables[i]);
+        jpeg->ac_huffman_tables[i] = 0;
+    }
+
+    for(int i=0; i<jpeg->n_dc_huffman_tables; i++){
+        jpeg_huffman_table_destroy(jpeg->dc_huffman_tables[i]);
+        free(jpeg->dc_huffman_tables[i]);
+        jpeg->dc_huffman_tables[i] = 0;
+    }
+
+    free(jpeg->blocks);
+    jpeg->blocks = 0;
+
+    struct jpeg_segment* segment = jpeg->first_segment;
+    while(segment){
+        struct jpeg_segment* next = segment->next_segment;
+        free(segment);
+        segment = next;
+    }
 }
 
 void jpeg_print_sizes(struct jpeg* jpeg){

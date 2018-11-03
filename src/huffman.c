@@ -30,6 +30,19 @@ void huffman_tree_init(struct huffman_tree* tree){
     tree->right = 0;
 }
 
+void huffman_tree_destroy(struct huffman_tree* tree){
+    if(tree->left){
+        huffman_tree_destroy(tree->left);
+        free(tree->left);
+        tree->left = 0;
+    }
+    if(tree->right){
+        huffman_tree_destroy(tree->right);
+        free(tree->right);
+        tree->left = 0;
+    }
+}
+
 int huffman_tree_insert_goleft(struct huffman_tree* tree, int depth, uint8_t element){
     if(tree->has_element){
         return 0;
@@ -145,6 +158,11 @@ void huffman_inv_init(struct huffman_inv* inv, struct huffman_tree* from){
     }
 
     huffman_inv_init_rec(inv, from, 0, 0);
+}
+
+void huffman_inv_destroy(struct huffman_inv* inv){
+    free(inv->data);
+    inv->data = 0;
 }
 
 int huffman_inv_encode(struct huffman_inv* inv, struct obitstream* stream, uint8_t data){

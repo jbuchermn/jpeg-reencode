@@ -34,6 +34,7 @@ struct jpeg_huffman_table{
 };
 
 int jpeg_huffman_table_init(struct jpeg_huffman_table* table, unsigned char* at);
+void jpeg_huffman_table_destroy(struct jpeg_huffman_table* table);
 
 struct jpeg_quantisation_table {
     int id;
@@ -95,6 +96,7 @@ struct jpeg {
 };
 
 int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data);
+void jpeg_destroy(struct jpeg* jpeg);
 
 void jpeg_print_sizes(struct jpeg* jpeg);
 void jpeg_print_segments(struct jpeg* jpeg);
