@@ -1,5 +1,5 @@
 project(
-    'jpeg-quality-changer',
+    'jpeg-reencode',
     'c',
     version: '0.1.0',
     license: 'MIT',
@@ -23,7 +23,7 @@ sources = [
 incs = include_directories('include')
 
 executable(
-	'jpeg-quality-changer',
+	'jpeg-reencode',
 	sources,
     include_directories: incs,
 	dependencies: [m],
