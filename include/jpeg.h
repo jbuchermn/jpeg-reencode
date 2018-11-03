@@ -127,9 +127,10 @@ void jpeg_obitstream_init(struct jpeg_obitstream* stream, unsigned char* data, l
 
 int jpeg_decode_huffman(struct jpeg* jpeg);
 
+long jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
+
 /* buffer is required to be 0-initialised */
 long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 
-int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 
 #endif

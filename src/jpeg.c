@@ -324,7 +324,7 @@ struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, 
     return 0;
 }
 
-int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size){
+long jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size){
     unsigned char* at = buffer;
 
     for(struct jpeg_segment* cur = jpeg->first_segment; cur; cur = cur->next_segment){
@@ -357,7 +357,6 @@ int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long 
 
             // Set size
             int s = (at - size);
-            printf("Quant header size: %d\n", s);
             *(size++) = (s & 0xFF00) / 256;
             *(size++) = (s & 0xFF);
 
@@ -365,6 +364,14 @@ int jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long 
             // Copy other headers
             memcpy(at, cur->data, cur->size);
             at += cur->size;
+        }
+
+        /*
+         * Actually we are too late at this point, but let's just assume
+         * anyone provides enough space for the header
+         */
+        if(buffer + buffer_size < at){
+            return E_FULL;
         }
 
     }

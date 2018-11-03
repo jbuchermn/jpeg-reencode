@@ -164,10 +164,8 @@ long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_s
     // Write EOS
     unsigned char* out = stream.at;
     assert(out - buffer <= buffer_size - 2);
-    *out = 0xFF;
-    *out++;
-    *out = 0xD9;
-    *out++;
+    *(out++) = 0xFF;
+    *(out++) = 0xD9;
 
     return out - buffer;
 }

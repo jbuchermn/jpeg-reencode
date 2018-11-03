@@ -37,7 +37,7 @@ int main(int argc, char** argv){
     assert(status == 0);
     decode_time = clock() - decode_time;
 
-    printf("Successfully decoded JPEG (%dkB) in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
+    printf("Successfully decoded JPEG (%ldkB) in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
 
     unsigned char* output_buffer = malloc(bytes_input);
     memset(output_buffer, 0, bytes_input);
@@ -47,15 +47,15 @@ int main(int argc, char** argv){
     }
 
     clock_t encode_time = clock();
-    int bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, bytes_input);
+    long bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, bytes_input);
     assert(bytes_header > 0);
-    int bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
+    long bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
     assert(bytes_scan > 0);
     encode_time = clock() - encode_time;
 
-    int bytes_output = bytes_header + bytes_scan;
+    long bytes_output = bytes_header + bytes_scan;
 
-    printf("Successfully encoded JPEG (%dkB) in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
+    printf("Successfully encoded JPEG (%ldkB) in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
 
     f = fopen("./tmp.jpg", "wb");  
     fwrite(output_buffer, 1, bytes_output, f);
