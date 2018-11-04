@@ -254,7 +254,7 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
             jpeg->components[i]->vertical_sampling : reference_width;
     }
 
-    int block_height = ceil(jpeg->height / reference_width / 8.);
+    int block_height = ceil(jpeg->height / reference_height / 8.);
     int block_width = ceil(jpeg->width / reference_width / 8.);
 
     jpeg->n_blocks = 0;
@@ -262,6 +262,7 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
         jpeg->n_blocks += block_width * jpeg->components[i]->vertical_sampling * 
             block_height * jpeg->components[i]->horizontal_sampling;
     }
+
     jpeg->blocks = malloc(jpeg->n_blocks * sizeof(struct jpeg_block));
     memset(jpeg->blocks, 0, jpeg->n_blocks * sizeof(struct jpeg_block));
 

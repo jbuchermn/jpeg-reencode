@@ -8,12 +8,14 @@
 #include "jpeg.h"
 
 int main(int argc, char** argv){
-    if (argc < 3){
-        printf("Usage jpeg-reencode file.jpg output.jpg");
+    if (argc < 4){
+        printf("Usage jpeg-reencode <factor> file.jpg output.jpg");
         exit(1);
     }
 
-    FILE* f = fopen(argv[1], "rb");
+    float factor = atof(argv[1]);
+
+    FILE* f = fopen(argv[2], "rb");
     fseek(f, 0, SEEK_END);
     long bytes_input = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -25,7 +27,10 @@ int main(int argc, char** argv){
 
     clock_t init_time = clock();
     int status = jpeg_init(&jpeg, bytes_input, input_buffer);
-    assert(status == 0);
+    if(status){
+        printf("Error: %d\n", status);
+        exit(1);
+    }
     init_time = clock() - init_time;
 
     printf("Read header in %fms\n", 1000.*init_time/CLOCKS_PER_SEC);
@@ -39,7 +44,13 @@ int main(int argc, char** argv){
 
     clock_t decode_time = clock();
     status = jpeg_decode_huffman(&jpeg);
-    assert(status == 0);
+    if(status == E_SIZE_MISMATCH){
+        printf("Error: Wrong number of MCUs\n");
+        exit(1);
+    }else if(status){
+        printf("Error: %d\n", status);
+        exit(1);
+    }
     decode_time = clock() - decode_time;
 
     printf("Decoded: %ldkB in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
@@ -48,21 +59,27 @@ int main(int argc, char** argv){
     memset(output_buffer, 0, bytes_input);
 
     for(int i=0; i<jpeg.n_quantisation_tables; i++){
-        jpeg_quantisation_table_init_recompress(jpeg.quantisation_tables[i], 10.);
+        jpeg_quantisation_table_init_recompress(jpeg.quantisation_tables[i], factor);
     }
 
     clock_t encode_time = clock();
     long bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, bytes_input);
-    assert(bytes_header > 0);
+    if(bytes_header < 0){
+        printf("Error: %ld\n", bytes_header);
+        exit(1);
+    }
     long bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
-    assert(bytes_scan > 0);
+    if(bytes_scan < 0){
+        printf("Error: %ld\n", bytes_scan);
+        exit(1);
+    }
     encode_time = clock() - encode_time;
 
     long bytes_output = bytes_header + bytes_scan;
 
     printf("Encoded: %ldkB in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
 
-    f = fopen(argv[2], "wb");  
+    f = fopen(argv[3], "wb");  
     fwrite(output_buffer, 1, bytes_output, f);
     fclose(f);
 
