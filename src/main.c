@@ -29,6 +29,7 @@ int main(int argc, char** argv){
     init_time = clock() - init_time;
 
     printf("Read header in %fms\n", 1000.*init_time/CLOCKS_PER_SEC);
+    printf("Image size: %dx%d, %dMP\n", jpeg.width, jpeg.height, jpeg.width * jpeg.height / 1000000);
 
     /* jpeg_print_sizes(&jpeg); */
     /* jpeg_print_segments(&jpeg); */
