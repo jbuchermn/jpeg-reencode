@@ -14,7 +14,7 @@ void jpeg_ibitstream_init(struct jpeg_ibitstream* stream, unsigned char* data, l
     stream->size_bytes = size;
 }
 
-static int from_ssss(uint8_t ssss, struct jpeg_ibitstream* stream, int* value){
+static inline int from_ssss(uint8_t ssss, struct jpeg_ibitstream* stream, int* value){
     if(ssss == 0){
         *value = 0;
         return 0;
@@ -46,7 +46,7 @@ static int from_ssss(uint8_t ssss, struct jpeg_ibitstream* stream, int* value){
     return 0;
 }
 
-static int read_dc_value(struct jpeg_ibitstream* stream, struct huffman_tree* tree, int* value){
+static inline int read_dc_value(struct jpeg_ibitstream* stream, struct huffman_tree* tree, int* value){
     uint8_t ssss;
     int status = huffman_tree_decode(tree, stream, &ssss);
     if(status){
@@ -56,7 +56,7 @@ static int read_dc_value(struct jpeg_ibitstream* stream, struct huffman_tree* tr
     return from_ssss(ssss, stream, value);
 }
 
-static int read_ac_value(struct jpeg_ibitstream* stream, struct huffman_tree* tree, int* value, uint8_t* leading_zeros){
+static inline int read_ac_value(struct jpeg_ibitstream* stream, struct huffman_tree* tree, int* value, uint8_t* leading_zeros){
     uint8_t rrrrssss;
     int status = huffman_tree_decode(tree, stream, &rrrrssss);
     if(status){
@@ -86,7 +86,7 @@ static int read_ac_value(struct jpeg_ibitstream* stream, struct huffman_tree* tr
     }
 }
 
-static int decode_block(int16_t* result, struct jpeg_ibitstream* stream, int* dc_offset, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
+static inline int decode_block(int16_t* result, struct jpeg_ibitstream* stream, int* dc_offset, struct huffman_tree* dc_tree, struct huffman_tree* ac_tree){
     int value = 0;
     int status = read_dc_value(stream, dc_tree, &value);
     value += *dc_offset;
@@ -143,7 +143,7 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
 
     int component = 0;
     for(int i=0; i<jpeg->n_blocks; i++){
-        jpeg_block_init(jpeg->blocks + i, loop[component]->id);
+        jpeg->blocks[i].component_id = loop[component]->id;
         int dc_id = loop[component]->dc_huffman_id;
         int ac_id = loop[component]->ac_huffman_id;
 

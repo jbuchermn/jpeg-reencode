@@ -115,10 +115,6 @@ void jpeg_segment_init(struct jpeg_segment* segment, struct jpeg* jpeg, long siz
     assert(size > 1);
 }
 
-void jpeg_block_init(struct jpeg_block* block, int component_id){
-    block->component_id = component_id;
-}
-
 int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     jpeg->size = size;
     jpeg->data = data;

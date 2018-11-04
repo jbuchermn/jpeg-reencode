@@ -68,7 +68,6 @@ struct jpeg_block {
     int16_t values[64];
 };
 
-void jpeg_block_init(struct jpeg_block* block, int component_id);
 
 struct jpeg {
     long size;

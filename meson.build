@@ -27,5 +27,5 @@ executable(
 	sources,
     include_directories: incs,
 	dependencies: [m],
-    c_args: ['-O3']
+    c_args: ['-O3'],
 )
