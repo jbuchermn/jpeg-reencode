@@ -8,8 +8,8 @@
 #include "jpeg.h"
 
 int main(int argc, char** argv){
-    if (argc < 2){
-        printf("Usage jpeg-quality-changer file.jpg");
+    if (argc < 3){
+        printf("Usage jpeg-reencode file.jpg output.jpg");
         exit(1);
     }
 
@@ -22,13 +22,18 @@ int main(int argc, char** argv){
     fclose(f);
 
     struct jpeg jpeg;
+
+    clock_t init_time = clock();
     int status = jpeg_init(&jpeg, bytes_input, input_buffer);
     assert(status == 0);
+    init_time = clock() - init_time;
 
-    jpeg_print_sizes(&jpeg);
-    jpeg_print_segments(&jpeg);
-    jpeg_print_components(&jpeg);
-    jpeg_print_quantisation_tables(&jpeg);
+    printf("Read header in %fms\n", 1000.*init_time/CLOCKS_PER_SEC);
+
+    /* jpeg_print_sizes(&jpeg); */
+    /* jpeg_print_segments(&jpeg); */
+    /* jpeg_print_components(&jpeg); */
+    /* jpeg_print_quantisation_tables(&jpeg); */
     /* jpeg_print_huffman_tables(&jpeg); */
 
     clock_t decode_time = clock();
@@ -36,7 +41,7 @@ int main(int argc, char** argv){
     assert(status == 0);
     decode_time = clock() - decode_time;
 
-    printf("Successfully decoded JPEG (%ldkB) in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
+    printf("Decoded: %ldkB in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
 
     unsigned char* output_buffer = malloc(bytes_input);
     memset(output_buffer, 0, bytes_input);
@@ -54,13 +59,11 @@ int main(int argc, char** argv){
 
     long bytes_output = bytes_header + bytes_scan;
 
-    printf("Successfully encoded JPEG (%ldkB) in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
+    printf("Encoded: %ldkB in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
 
-    f = fopen("./tmp.jpg", "wb");  
+    f = fopen(argv[2], "wb");  
     fwrite(output_buffer, 1, bytes_output, f);
     fclose(f);
-
-    printf("Wrote to tmp.jpg\n");
 
     jpeg_destroy(&jpeg);
 

@@ -4,24 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include "huffman.h"
-
-void ibitstream_init(struct ibitstream* stream, void* data, int (*read)(void*, uint8_t*)){
-    stream->data = data;
-    stream->read = read;
-}
-
-int ibitstream_read(struct ibitstream* stream, uint8_t* bit){
-    return (*stream->read)(stream->data, bit);
-}
-
-void obitstream_init(struct obitstream* stream, void* data, int (*write)(void*, uint8_t)){
-    stream->data = data;
-    stream->write = write;
-}
-
-int obitstream_write(struct obitstream* stream, uint8_t bit){
-    return (*stream->write)(stream->data, bit);
-}
+#include "jpeg.h"
 
 void huffman_tree_init(struct huffman_tree* tree){
     tree->has_element = 0;
@@ -105,14 +88,14 @@ void huffman_tree_print(struct huffman_tree* tree, char* prefix){
     }
 }
 
-int huffman_tree_decode(struct huffman_tree* tree, struct ibitstream* stream, uint8_t* result){
+int huffman_tree_decode(struct huffman_tree* tree, struct jpeg_ibitstream* stream, uint8_t* result){
     if(tree->has_element){
         *result = tree->element;
         return 0;
     }
 
     uint8_t bit;
-    int status = ibitstream_read(stream, &bit);
+    int status = jpeg_ibitstream_read(stream, &bit);
     if(status){
         return status;
     }
@@ -165,7 +148,7 @@ void huffman_inv_destroy(struct huffman_inv* inv){
     inv->data = 0;
 }
 
-int huffman_inv_encode(struct huffman_inv* inv, struct obitstream* stream, uint8_t data){
+int huffman_inv_encode(struct huffman_inv* inv, struct jpeg_obitstream* stream, uint8_t data){
     if(data >= inv->size || !inv->data[data].exists){
         printf("%d\n", data);
         return E_NO_CODE;
@@ -174,7 +157,7 @@ int huffman_inv_encode(struct huffman_inv* inv, struct obitstream* stream, uint8
     uint16_t val = inv->data[data].bits;
     for(int i=0; i<inv->data[data].size; i++){
         uint8_t bit = (val >> (15 - i)) & 1;
-        int status = obitstream_write(stream, bit);
+        int status = jpeg_obitstream_write(stream, bit);
         if(status){
             return status;
         }

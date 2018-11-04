@@ -257,8 +257,6 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     int block_height = ceil(jpeg->height / reference_width / 8.);
     int block_width = ceil(jpeg->width / reference_width / 8.);
 
-    printf("%dx%d", block_height, block_width);
-
     jpeg->n_blocks = 0;
     for(int i=0; i<jpeg->n_components; i++){
         jpeg->n_blocks += block_width * jpeg->components[i]->vertical_sampling * 

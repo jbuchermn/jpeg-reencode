@@ -107,8 +107,6 @@ void jpeg_print_huffman_tables(struct jpeg* jpeg);
 struct jpeg_segment* jpeg_find_segment(struct jpeg* jpeg, unsigned char header, struct jpeg_segment* after);
 
 struct jpeg_ibitstream {
-    struct ibitstream ibitstream;
-
     uint8_t at_restart;
     unsigned char* at;
     uint8_t at_bit;
@@ -116,16 +114,88 @@ struct jpeg_ibitstream {
 };
 
 void jpeg_ibitstream_init(struct jpeg_ibitstream* stream, unsigned char* data, long size);
+inline int jpeg_ibitstream_read(struct jpeg_ibitstream* stream, uint8_t* result){
+
+    if(stream->size_bytes == 0) return E_EMPTY;
+    if(stream->at_restart){
+        stream->at_restart = 0;
+        return E_RESTART;
+    }
+
+    *result = ((*stream->at) >> (7 - stream->at_bit)) & 1;
+
+    if(stream->at_bit == 7){
+        if(
+            stream->size_bytes >= 2 && 
+            stream->at[0] == 0xFF &&
+            stream->at[1] == 0x00
+        ){
+            stream->at++;
+            stream->size_bytes--;
+        }
+
+        if(
+            stream->size_bytes >= 3 &&
+            stream->at[1] == 0xFF &&
+            stream->at[2] != 0x00
+        ){
+            stream->at += 2;
+            stream->size_bytes -= 2;
+
+            // EOS marker
+            if(*stream->at == 0xD9){
+                stream->size_bytes = 1;
+            }
+
+            // Restart marker
+            if(*stream->at >= 0xD0 && *stream->at <= 0xD7){
+                stream->at_restart = 1;
+            }
+        }
+
+        stream->at_bit = 0;
+        stream->at++;
+        stream->size_bytes--;
+    }else{
+        stream->at_bit++;
+    }
+
+    return 0;
+}
 
 struct jpeg_obitstream {
-    struct obitstream obitstream;
-
     unsigned char* at;
     uint8_t at_bit;
     long size_bytes;
 };
 
 void jpeg_obitstream_init(struct jpeg_obitstream* stream, unsigned char* data, long size);
+inline int jpeg_obitstream_write(struct jpeg_obitstream* stream, uint8_t bit){
+
+    if(stream->size_bytes == 0) return E_FULL;
+
+    if(bit){
+        (*stream->at) |= 1 << (7 - stream->at_bit);
+    }
+
+    if(stream->at_bit == 7){
+        if(stream->at[0] == 0xFF){
+            if(stream->size_bytes < 2){
+                return E_FULL;
+            }
+            stream->at++;
+            stream->size_bytes--;
+        }
+
+        stream->at_bit = 0;
+        stream->at++;
+        stream->size_bytes--;
+    }else{
+        stream->at_bit++;
+    }
+
+    return 0;
+}
 
 int jpeg_decode_huffman(struct jpeg* jpeg);
 
