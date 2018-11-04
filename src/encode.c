@@ -72,7 +72,6 @@ static inline int encode_block(int16_t* data, struct jpeg_obitstream* stream, in
         return status;
     }
 
-    // Skip all AC values
     int zeros = 0;
     for(int i=1; i<64; i++){
         if(data[i] == 0){
