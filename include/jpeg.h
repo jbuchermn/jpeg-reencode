@@ -69,9 +69,22 @@ struct jpeg_block {
 };
 
 
+struct jpeg_processing_unit{
+    struct jpeg* jpeg;
+
+    long size;
+    unsigned char* data;
+
+    int n_blocks;
+    struct jpeg_block* blocks;
+};
+
 struct jpeg {
     long size;
     unsigned char* data;
+
+    long scan_size;
+    unsigned char* scan_data;
 
     int width;
     int height;
@@ -92,9 +105,15 @@ struct jpeg {
 
     int n_blocks;
     struct jpeg_block* blocks;
+
+    int restart_interval;
+
+    int n_processing_units;
+    struct jpeg_processing_unit* processing_units;
 };
 
 int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data);
+void jpeg_init_processing_units(struct jpeg* jpeg);
 void jpeg_destroy(struct jpeg* jpeg);
 
 void jpeg_print_sizes(struct jpeg* jpeg);
@@ -197,6 +216,7 @@ inline int jpeg_obitstream_write(struct jpeg_obitstream* stream, uint8_t bit){
 }
 
 int jpeg_decode_huffman(struct jpeg* jpeg);
+int jpeg_decode_huffman_parallel(struct jpeg* jpeg, int nproc);
 
 long jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 

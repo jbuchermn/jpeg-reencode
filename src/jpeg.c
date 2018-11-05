@@ -119,6 +119,9 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     jpeg->size = size;
     jpeg->data = data;
 
+    jpeg->n_processing_units = 0;
+    jpeg->processing_units = 0;
+
     for(int i=0; i<MAX_TABLES; i++){
         jpeg->quantisation_tables[i] = 0;
         jpeg->ac_huffman_tables[i] = 0;
@@ -203,6 +206,14 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
         assert(at - huffman->data == huffman->size);
     }
 
+    // Restart interval
+    struct jpeg_segment* dri = jpeg_find_segment(jpeg, 0xDD, 0);
+    if(!dri){
+        jpeg->restart_interval = -1;
+    }else{
+        jpeg->restart_interval = uint16_from_uchar(dri->data + 4);
+    }
+
     // Start of frame
     struct jpeg_segment* sof = jpeg_find_segment(jpeg, 0xC0, 0);
     assert(sof);
@@ -274,7 +285,48 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
     // Three empty bytes before scan data
     assert(at + 3 - sos->data == sos->size);
 
+    jpeg->scan_data = sos->data + sos->size;
+    jpeg->scan_size = jpeg->size - (jpeg->scan_data - jpeg->data);
+
     return 0;
+}
+
+void jpeg_init_processing_units(struct jpeg* jpeg){
+    if(jpeg->restart_interval == -1){
+        jpeg->n_processing_units = 1;
+    }else{
+        // TODO! Proper block layout
+        jpeg->n_processing_units = jpeg->n_blocks/jpeg->restart_interval/4;
+        assert(jpeg->restart_interval * jpeg->n_processing_units * 4 == jpeg->n_blocks);
+    }
+
+    jpeg->processing_units = malloc(jpeg->n_processing_units * sizeof(struct jpeg_processing_unit));
+
+    struct jpeg_block* blocks = jpeg->blocks;
+    for(int i=0; i<jpeg->n_processing_units; i++){
+        jpeg->processing_units[i].jpeg = jpeg;
+        jpeg->processing_units[i].n_blocks = jpeg->restart_interval * 4;
+        jpeg->processing_units[i].blocks = blocks;
+        blocks += 4 * jpeg->restart_interval;
+    }
+
+    unsigned char* start = jpeg->scan_data;
+    int i=0;
+    for(unsigned char* at=jpeg->scan_data; at<=jpeg->scan_data + jpeg->scan_size - 1; at++){
+        if(at[0] == 0xFF){
+            if(at[1] >= 0xD0 && at[1] <= 0xD9){ // Accept restart markers and EOS marker
+                jpeg->processing_units[i].data = start;
+                jpeg->processing_units[i].size = at - start;
+                start = at + 2;
+                i++;
+
+                if(i>= jpeg->n_processing_units){
+                    assert(at[1] == 0xD9);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void jpeg_destroy(struct jpeg* jpeg){
@@ -310,6 +362,7 @@ void jpeg_destroy(struct jpeg* jpeg){
         segment = next;
     }
 }
+
 
 void jpeg_print_sizes(struct jpeg* jpeg){
     printf("------ JPEG -----------\n");

@@ -1,3 +1,5 @@
+#include <pthread.h>
+#include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -117,43 +119,40 @@ static inline int decode_block(int16_t* result, struct jpeg_ibitstream* stream, 
     return 0;
 }
 
-int jpeg_decode_huffman(struct jpeg* jpeg){
-    struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
-    unsigned char* scan_data = sos->data + sos->size;
-    long scan_size = jpeg->size - (scan_data - jpeg->data);
 
+static int jpeg_processing_unit_decode_huffman(struct jpeg_processing_unit* pu){
     struct jpeg_ibitstream stream;
-    jpeg_ibitstream_init(&stream, scan_data, scan_size);
+    jpeg_ibitstream_init(&stream, pu->data, pu->size);
 
     int loop_count = 0;
-    for(int i=0; i<jpeg->n_components; i++){
-        loop_count += jpeg->components[i]->vertical_sampling * jpeg->components[i]->horizontal_sampling;
+    for(int i=0; i<pu->jpeg->n_components; i++){
+        loop_count += pu->jpeg->components[i]->vertical_sampling * pu->jpeg->components[i]->horizontal_sampling;
     }
 
     struct jpeg_component** loop = malloc(loop_count * sizeof(struct jpeg_component*));
     int k = 0;
-    for(int i=0; i<jpeg->n_components; i++){
-        int block_count = jpeg->components[i]->vertical_sampling * jpeg->components[i]->horizontal_sampling;
+    for(int i=0; i<pu->jpeg->n_components; i++){
+        int block_count = pu->jpeg->components[i]->vertical_sampling * pu->jpeg->components[i]->horizontal_sampling;
         for(int j=0; j<block_count; j++){
-            loop[k++] = jpeg->components[i];
+            loop[k++] = pu->jpeg->components[i];
         }
     }
 
     int dc_offset[MAX_COMPONENTS] = { 0 };
 
     int component = 0;
-    for(int i=0; i<jpeg->n_blocks; i++){
-        jpeg->blocks[i].component_id = loop[component]->id;
+    for(int i=0; i<pu->n_blocks; i++){
+        pu->blocks[i].component_id = loop[component]->id;
         int dc_id = loop[component]->dc_huffman_id;
         int ac_id = loop[component]->ac_huffman_id;
 
         int done = 0;
         int status = 0;
         while(!done){
-            status = decode_block(jpeg->blocks[i].values, &stream, 
+            status = decode_block(pu->blocks[i].values, &stream, 
                     dc_offset + loop[component]->id - 1,
-                    jpeg->dc_huffman_tables[dc_id]->huffman_tree,
-                    jpeg->ac_huffman_tables[ac_id]->huffman_tree);
+                    pu->jpeg->dc_huffman_tables[dc_id]->huffman_tree,
+                    pu->jpeg->ac_huffman_tables[ac_id]->huffman_tree);
 
             if(status == E_RESTART){
                 for(int i=0; i<MAX_COMPONENTS; i++) dc_offset[i] = 0;
@@ -172,16 +171,63 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
 
     free(loop);
 
-    // Move to byte boundary
-    if(stream.size_bytes > 0){
-        uint8_t dummy;
-        while(stream.at_bit != 0) jpeg_ibitstream_read(&stream, &dummy);
-    }
+    return 0;
 
-    // Assert we hit EOS
-    if(stream.size_bytes != 0){
-        return E_SIZE_MISMATCH;
+}
+
+int jpeg_decode_huffman(struct jpeg* jpeg){
+    for(int i=0; i<jpeg->n_processing_units; i++){
+        int status = jpeg_processing_unit_decode_huffman(jpeg->processing_units + i);
+        if(status){
+            return status;
+        }
+    }
+    return 0;
+}
+
+static struct batch {
+    pthread_t thread;
+    struct jpeg_processing_unit* pu;
+    int n_pu;
+    int status;
+};
+
+static void* run(void* arg){
+    struct batch* batch = (struct batch*)arg;
+    for(int i=0; i<batch->n_pu; i++){
+        batch->status = jpeg_processing_unit_decode_huffman(batch->pu + i);
+        if(batch->status){
+            return 0;
+        }
     }
 
     return 0;
+}
+
+int jpeg_decode_huffman_parallel(struct jpeg* jpeg, int nproc){
+    while(jpeg->n_processing_units < nproc) nproc--;
+    struct batch* batches = malloc(nproc * sizeof(struct batch));
+
+    int pu_per_batch = jpeg->n_processing_units / nproc;
+    for(int i=0; i<nproc; i++){
+        batches[i].status = 0;
+        batches[i].n_pu = pu_per_batch;
+        batches[i].pu = jpeg->processing_units + i * pu_per_batch;
+    }
+    batches[nproc - 1].n_pu = jpeg->n_processing_units - (nproc - 1)*pu_per_batch;
+
+    for(int i=0; i<nproc; i++){
+        pthread_create(&batches[i].thread, NULL, &run, (void*)&batches[i]);
+    }
+
+    int status = 0;
+    for(int i=0; i<nproc; i++){
+        pthread_join(batches[i].thread, NULL);
+        if(batches[i].status){
+            status = batches[i].status;
+        }
+    }
+
+    free(batches);
+    return status;
 }

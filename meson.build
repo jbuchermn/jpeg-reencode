@@ -10,7 +10,8 @@ project(
     ],
 )
 
-m = meson.get_compiler('c').find_library('m')
+m       = meson.get_compiler('c').find_library('m')
+pthread = meson.get_compiler('c').find_library('pthread')
 
 sources = [
     'src/main.c',
@@ -26,6 +27,6 @@ executable(
 	'jpeg-reencode',
 	sources,
     include_directories: incs,
-	dependencies: [m],
+	dependencies: [m, pthread],
     c_args: ['-Ofast']
 )
