@@ -61,6 +61,7 @@ static inline int write_rrrrssss(struct jpeg_obitstream* stream, struct huffman_
 static inline int encode_block(int16_t* data, struct jpeg_obitstream* stream, int* dc_offset, struct huffman_inv* dc_inv, struct huffman_inv* ac_inv, struct jpeg_quantisation_table* quantisation){
     
     for(int i=0; i<64; i++){
+        if(data[i] == 0) continue;
         data[i] = round(data[i] * quantisation->recompress_factors[i]);
     }
 

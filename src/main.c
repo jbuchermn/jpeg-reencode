@@ -62,12 +62,16 @@ int main(int argc, char** argv){
         jpeg_quantisation_table_init_recompress(jpeg.quantisation_tables[i], factor);
     }
 
-    clock_t encode_time = clock();
+    clock_t header_time = clock();
     long bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, bytes_input);
     if(bytes_header < 0){
         printf("Error: %ld\n", bytes_header);
         exit(1);
     }
+    header_time = clock() - header_time;
+    printf("Wrote header in %fms\n", 1000.*header_time/CLOCKS_PER_SEC);
+
+    clock_t encode_time = clock();
     long bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
     if(bytes_scan < 0){
         printf("Error: %ld\n", bytes_scan);
