@@ -188,13 +188,14 @@ int jpeg_decode_huffman(struct jpeg* jpeg){
 static struct batch {
     pthread_t thread;
     struct jpeg_processing_unit* pu;
+    int pu_stride;
     int n_pu;
     int status;
 };
 
 static void* run(void* arg){
     struct batch* batch = (struct batch*)arg;
-    for(int i=0; i<batch->n_pu; i++){
+    for(int i=0; i<batch->n_pu; i+=batch->pu_stride){
         batch->status = jpeg_processing_unit_decode_huffman(batch->pu + i);
         if(batch->status){
             return 0;
@@ -205,16 +206,15 @@ static void* run(void* arg){
 }
 
 int jpeg_decode_huffman_parallel(struct jpeg* jpeg, int nproc){
-    while(jpeg->n_processing_units < nproc) nproc--;
     struct batch* batches = malloc(nproc * sizeof(struct batch));
 
     int pu_per_batch = jpeg->n_processing_units / nproc;
     for(int i=0; i<nproc; i++){
         batches[i].status = 0;
-        batches[i].n_pu = pu_per_batch;
-        batches[i].pu = jpeg->processing_units + i * pu_per_batch;
+        batches[i].pu = jpeg->processing_units + i;
+        batches[i].pu_stride = nproc;
+        batches[i].n_pu = jpeg->n_processing_units - i;
     }
-    batches[nproc - 1].n_pu = jpeg->n_processing_units - (nproc - 1)*pu_per_batch;
 
     for(int i=0; i<nproc; i++){
         pthread_create(&batches[i].thread, NULL, &run, (void*)&batches[i]);
