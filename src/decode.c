@@ -208,7 +208,6 @@ static void* run(void* arg){
 int jpeg_decode_huffman_parallel(struct jpeg* jpeg, int nproc){
     struct batch* batches = malloc(nproc * sizeof(struct batch));
 
-    int pu_per_batch = jpeg->n_processing_units / nproc;
     for(int i=0; i<nproc; i++){
         batches[i].status = 0;
         batches[i].pu = jpeg->processing_units + i;
