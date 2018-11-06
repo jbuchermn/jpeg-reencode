@@ -106,6 +106,10 @@ static inline int encode_block(int16_t* data, struct jpeg_obitstream* stream, in
 }
 
 long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size){
+    if(!jpeg->blocks){
+        return E_NOT_YET_DECODED;
+    }
+
     struct jpeg_obitstream stream;
     jpeg_obitstream_init(&stream, buffer, buffer_size);
 

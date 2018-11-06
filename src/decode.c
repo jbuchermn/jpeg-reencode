@@ -118,6 +118,13 @@ static inline int decode_block(int16_t* result, struct jpeg_ibitstream* stream, 
 }
 
 int jpeg_decode_huffman(struct jpeg* jpeg){
+    if(jpeg->blocks){
+        return E_ALREADY_DECODED;
+    }
+
+    jpeg->blocks = malloc(jpeg->n_blocks * sizeof(struct jpeg_block));
+    memset(jpeg->blocks, 0, jpeg->n_blocks * sizeof(struct jpeg_block));
+
     struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
     unsigned char* scan_data = sos->data + sos->size;
     long scan_size = jpeg->size - (scan_data - jpeg->data);

@@ -15,6 +15,8 @@ struct jpeg;
 #define E_FULL -2
 #define E_RESTART -3
 #define E_SIZE_MISMATCH -4
+#define E_ALREADY_DECODED -5
+#define E_NOT_YET_DECODED
 
 struct jpeg_segment {
     long size;
@@ -202,6 +204,8 @@ long jpeg_write_recompress_header(struct jpeg* jpeg, unsigned char* buffer, long
 
 /* buffer is required to be 0-initialised */
 long jpeg_encode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
+
+long jpeg_reencode_huffman(struct jpeg* jpeg, unsigned char* buffer, long buffer_size);
 
 
 #endif

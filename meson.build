@@ -17,6 +17,7 @@ sources = [
     'src/jpeg.c',
     'src/encode.c',
     'src/decode.c',
+    'src/reencode.c',
     'src/huffman.c'
 ]
 

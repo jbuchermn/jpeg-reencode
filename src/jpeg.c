@@ -259,8 +259,7 @@ int jpeg_init(struct jpeg* jpeg, long size, unsigned char* data){
             block_height * jpeg->components[i]->horizontal_sampling;
     }
 
-    jpeg->blocks = malloc(jpeg->n_blocks * sizeof(struct jpeg_block));
-    memset(jpeg->blocks, 0, jpeg->n_blocks * sizeof(struct jpeg_block));
+    jpeg->blocks = 0;
 
     // Start of scan
     struct jpeg_segment* sos = jpeg_find_segment(jpeg, 0xDA, 0);
