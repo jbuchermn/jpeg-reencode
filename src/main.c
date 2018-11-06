@@ -7,6 +7,8 @@
 
 #include "jpeg.h"
 
+#define REENCODE
+
 int main(int argc, char** argv){
     if (argc < 4){
         printf("Usage jpeg-reencode <factor> file.jpg output.jpg");
@@ -58,30 +60,33 @@ int main(int argc, char** argv){
     header_time = clock() - header_time;
     printf("Wrote header in %fms\n", 1000.*header_time/CLOCKS_PER_SEC);
 
-    /* clock_t decode_time = clock(); */
-    /* status = jpeg_decode_huffman(&jpeg); */
-    /* if(status == E_SIZE_MISMATCH){ */
-    /*     printf("Error: Wrong number of MCUs\n"); */
-    /*     exit(1); */
-    /* }else if(status){ */
-    /*     printf("Error: %d\n", status); */
-    /*     exit(1); */
-    /* } */
-    /* decode_time = clock() - decode_time; */
-    /*  */
-    /* printf("Decoded: %ldkB in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC); */
-    /*  */
-    /* clock_t encode_time = clock(); */
-    /* long bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header); */
-    /* if(bytes_scan < 0){ */
-    /*     printf("Error: %ld\n", bytes_scan); */
-    /*     exit(1); */
-    /* } */
-    /* encode_time = clock() - encode_time; */
-    /*  */
-    /* long bytes_output = bytes_header + bytes_scan; */
-    /*  */
-    /* printf("Encoded: %ldkB in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC); */
+#ifndef REENCODE
+    clock_t decode_time = clock();
+    status = jpeg_decode_huffman(&jpeg);
+    if(status == E_SIZE_MISMATCH){
+        printf("Error: Wrong number of MCUs\n");
+        exit(1);
+    }else if(status){
+        printf("Error: %d\n", status);
+        exit(1);
+    }
+    decode_time = clock() - decode_time;
+
+    printf("Decoded: %ldkB in %fms\n", bytes_input/1000, 1000.*decode_time/CLOCKS_PER_SEC);
+
+    clock_t encode_time = clock();
+    long bytes_scan = jpeg_encode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
+    if(bytes_scan < 0){
+        printf("Error: %ld\n", bytes_scan);
+        exit(1);
+    }
+    encode_time = clock() - encode_time;
+
+    long bytes_output = bytes_header + bytes_scan;
+
+    printf("Encoded: %ldkB in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
+
+#else
 
     clock_t reencode_time = clock();
     long bytes_scan = jpeg_reencode_huffman(&jpeg, output_buffer + bytes_header, bytes_input - bytes_header);
@@ -93,7 +98,9 @@ int main(int argc, char** argv){
 
     long bytes_output = bytes_header + bytes_scan;
 
-    printf("Reencoded: %ldkB in %fms\n", bytes_output/1000, 1000.*reencode_time/CLOCKS_PER_SEC);
+    printf("Reencoded: %ldkB to %ldkB in %fms\n", bytes_input/1000, bytes_output/1000, 1000.*reencode_time/CLOCKS_PER_SEC);
+
+#endif
 
     f = fopen(argv[3], "wb");  
     fwrite(output_buffer, 1, bytes_output, f);
