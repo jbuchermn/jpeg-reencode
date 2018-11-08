@@ -16,7 +16,7 @@ struct jpeg;
 #define E_RESTART -3
 #define E_SIZE_MISMATCH -4
 #define E_ALREADY_DECODED -5
-#define E_NOT_YET_DECODED
+#define E_NOT_YET_DECODED -6
 
 struct jpeg_segment {
     long size;

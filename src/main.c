@@ -86,6 +86,10 @@ int main(int argc, char** argv){
 
     printf("Encoded: %ldkB in %fms\n", bytes_output/1000, 1000.*encode_time/CLOCKS_PER_SEC);
 
+    printf("\t\t\t\t\t %fMbps\n",
+            bytes_input * 8 * CLOCKS_PER_SEC/(decode_time + encode_time) * 1.e-6
+    );
+
 #else
 
     clock_t reencode_time = clock();
@@ -98,7 +102,15 @@ int main(int argc, char** argv){
 
     long bytes_output = bytes_header + bytes_scan;
 
-    printf("Reencoded: %ldkB to %ldkB in %fms\n", bytes_input/1000, bytes_output/1000, 1000.*reencode_time/CLOCKS_PER_SEC);
+    printf("Reencoded: %ldkB to %ldkB in %fms\n",
+            bytes_input/1000,
+            bytes_output/1000,
+            1000.*reencode_time/CLOCKS_PER_SEC
+    );
+
+    printf("\t\t\t\t\t %fMbps\n",
+            bytes_input * 8 * CLOCKS_PER_SEC/reencode_time * 1.e-6
+    );
 
 #endif
 
