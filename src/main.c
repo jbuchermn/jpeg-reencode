@@ -108,8 +108,8 @@ int main(int argc, char** argv){
             1000.*reencode_time/CLOCKS_PER_SEC
     );
 
-    printf("\t\t\t\t\t %fMbps\n",
-            bytes_input * 8 * CLOCKS_PER_SEC/reencode_time * 1.e-6
+    printf("=======================================> %fMbps\n",
+            bytes_input * 8. * CLOCKS_PER_SEC/reencode_time * 1.e-6
     );
 
 #endif
