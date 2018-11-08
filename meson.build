@@ -10,10 +10,15 @@ project(
     ],
 )
 
+python = import('python').find_installation('python3')
+
 m = meson.get_compiler('c').find_library('m')
 
+deps = [
+    m
+]
+
 sources = [
-    'src/main.c',
     'src/jpeg.c',
     'src/encode.c',
     'src/decode.c',
@@ -21,12 +26,23 @@ sources = [
     'src/huffman.c'
 ]
 
+py_sources = [
+    'py/jpeg_reencodemodule.c'
+]
+
 incs = include_directories('include')
 
 executable(
 	'jpeg-reencode',
-	sources,
+	sources + ['src/main.c'],
     include_directories: incs,
 	dependencies: [m],
     c_args: ['-Ofast']
+)
+
+python.extension_module(
+    'jpeg_reencode',
+    sources + py_sources,
+    include_directories: incs,
+    dependencies: deps + [python.dependency()]
 )

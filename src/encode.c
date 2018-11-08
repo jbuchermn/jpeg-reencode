@@ -13,6 +13,33 @@ void jpeg_obitstream_init(struct jpeg_obitstream* stream, unsigned char* data, l
     stream->size_bytes = size;
 }
 
+int jpeg_obitstream_write(struct jpeg_obitstream* stream, uint8_t bit){
+
+    if(stream->size_bytes == 0) return E_FULL;
+
+    if(bit){
+        (*stream->at) |= 1 << (7 - stream->at_bit);
+    }
+
+    if(stream->at_bit == 7){
+        if(stream->at[0] == 0xFF){
+            if(stream->size_bytes < 2){
+                return E_FULL;
+            }
+            stream->at++;
+            stream->size_bytes--;
+        }
+
+        stream->at_bit = 0;
+        stream->at++;
+        stream->size_bytes--;
+    }else{
+        stream->at_bit++;
+    }
+
+    return 0;
+}
+
 static inline int write_rrrrssss(struct jpeg_obitstream* stream, struct huffman_inv* huffman_inv, int value, uint8_t rrrr){
     int ssss;
 
