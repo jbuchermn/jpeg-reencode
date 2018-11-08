@@ -2,7 +2,7 @@ import time
 from build.jpeg_reencode import reencode
 
 data = None
-with open('./reference/3_720p.jpg', 'rb') as f:
+with open('./reference/2_480p.jpg', 'rb') as f:
     data = f.read()
 
 print("Loaded jpeg of size %dkB" % (len(data)/1000))

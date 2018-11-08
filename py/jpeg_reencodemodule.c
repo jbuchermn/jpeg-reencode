@@ -7,7 +7,7 @@
 
 #include "jpeg.h"
 
-#define OUTPUT_BUFFER_SIZE 1000000
+#define OUTPUT_BUFFER_SIZE 10000000
 static unsigned char output_buffer[OUTPUT_BUFFER_SIZE];
 
 static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
