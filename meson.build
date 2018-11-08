@@ -44,5 +44,6 @@ python.extension_module(
     'jpeg_reencode',
     sources + py_sources,
     include_directories: incs,
-    dependencies: deps + [python.dependency()]
+    dependencies: deps + [python.dependency()],
+    c_args: ['-Ofast']
 )

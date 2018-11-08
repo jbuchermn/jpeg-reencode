@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <time.h>
 
 #include "jpeg.h"
 
@@ -34,6 +36,10 @@ static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
     long bytes_scan = jpeg_reencode_huffman(&jpeg, output_buffer + bytes_header, size - bytes_header);
 
     PyObject* result = PyBytes_FromStringAndSize(output_buffer, bytes_header + bytes_scan);
+    if(!result){
+        PyErr_SetString(PyExc_TypeError, "Could not create bytes");
+        return NULL;
+    }
 
     jpeg_destroy(&jpeg);
 
