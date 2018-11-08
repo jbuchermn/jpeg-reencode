@@ -8,7 +8,7 @@ with open('./reference/2_480p.jpg', 'rb') as f:
 print("Loaded jpeg of size %dkB" % (len(data)/1000))
 result_size = 0
 t = time.time()
-for i in range(100):
+for i in range(1):
     result = reencode(data, 10)
     result_size = len(result)
 

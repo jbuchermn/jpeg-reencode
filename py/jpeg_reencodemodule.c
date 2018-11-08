@@ -11,11 +11,15 @@
 static unsigned char output_buffer[OUTPUT_BUFFER_SIZE];
 
 static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
+    PyObject* result = NULL;
+    Py_BEGIN_ALLOW_THREADS;
+
     PyBytesObject* buffer;
     double factor;
     if(!PyArg_ParseTuple(args, "Sd", &buffer, &factor)){
         PyErr_SetString(PyExc_TypeError, "Invalid parameters");
-        return NULL;
+
+        goto Return;
     }
 
     long size = PyBytes_Size(buffer);
@@ -24,7 +28,8 @@ static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
     int status = jpeg_init(&jpeg, size, PyBytes_AsString(buffer));
     if(status){
         PyErr_SetString(PyExc_TypeError, "Could not parse header");
-        return NULL;
+
+        goto Return;
     }
 
     for(int i=0; i<jpeg.n_quantisation_tables; i++){
@@ -35,14 +40,16 @@ static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
     long bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, size);
     long bytes_scan = jpeg_reencode_huffman(&jpeg, output_buffer + bytes_header, size - bytes_header);
 
-    PyObject* result = PyBytes_FromStringAndSize(output_buffer, bytes_header + bytes_scan);
+    result = PyBytes_FromStringAndSize(output_buffer, bytes_header + bytes_scan);
     if(!result){
         PyErr_SetString(PyExc_TypeError, "Could not create bytes");
-        return NULL;
-    }
 
+        goto Return;
+    }
     jpeg_destroy(&jpeg);
 
+Return:
+    Py_END_ALLOW_THREADS;
     return result;
 }
 
