@@ -7,11 +7,9 @@
 
 #include "jpeg.h"
 
-#define OUTPUT_BUFFER_SIZE 10000000
-static unsigned char output_buffer[OUTPUT_BUFFER_SIZE];
-
 static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
     PyObject* result = NULL;
+    unsigned char* output_buffer = NULL;
     Py_BEGIN_ALLOW_THREADS;
 
     PyBytesObject* buffer;
@@ -36,6 +34,7 @@ static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
         jpeg_quantisation_table_init_recompress(jpeg.quantisation_tables[i], factor);
     }
 
+    output_buffer = malloc(size);
     memset(output_buffer, 0, size);
     long bytes_header = jpeg_write_recompress_header(&jpeg, output_buffer, size);
     long bytes_scan = jpeg_reencode_huffman(&jpeg, output_buffer + bytes_header, size - bytes_header);
@@ -50,6 +49,7 @@ static PyObject* jpeg_reencode_reencode(PyObject* self, PyObject* args){
 
 Return:
     Py_END_ALLOW_THREADS;
+    free(output_buffer);
     return result;
 }
 
